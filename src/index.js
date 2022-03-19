@@ -11,12 +11,12 @@ import { FlakesTexture } from 'three/examples/jsm/textures/FlakesTexture.js'
 import { RGBMLoader } from 'three/examples/jsm/loaders/RGBMLoader.js'
 import { Color, Sphere } from 'three'
 
-
+// Build the page DOM
 build_DOM();
 
-let data = [];
-
+// Create scene
 const scene = new THREE.Scene();
+
 // Canvas
 const canvas = document.querySelector('#v_canvas')
 
@@ -29,24 +29,18 @@ const pointLight2 = new THREE.PointLight("#d68f0b", 1)
 pointLight2.position.set(0, 0, 20000)
 scene.add(pointLight2)
 
-/**
- * Sizes
- */
+// sizes
 var sizes = {
     width: window.innerWidth,
     height: window.innerHeigth
 }
-
 
 // Base camera
 const camera = new THREE.PerspectiveCamera(20, sizes.width / sizes.height, 0.001, 200000)
 
 scene.add(camera)
 
-
-/**
- * Renderer
- */
+// Renderer
 const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
     alpha: true,
@@ -60,26 +54,24 @@ controls.update()
 
 renderer.render(scene, camera);
 
-resize();
 
 
-/**
- * Animate
- */
+
+// Animate
 function animate() {
     controls.update();
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
 }
 
+resize();
 animate()
-
 
 const axios = require('axios');
 axios.get('https://127.0.0.1:8000/ob/ob_dict')
     .then(res => {        
-        data = res.data.glom_coord;
-        plot_glomeruli();
+        //data = res.data.glom_coord;
+        plot_glomeruli(res.data.glom_coord);
         camera.position.set(6151, -9950, 3251);
 
     })
@@ -87,19 +79,48 @@ axios.get('https://127.0.0.1:8000/ob/ob_dict')
         console.log('Error: ', err.message);
     });
 
-function plot_glomeruli() {
-    console.log(data);
+axios.get('https://127.0.0.1:8000/ob/example_mitral')
+    .then(res => {
+        plot_single_mitral(res);
+    })
+    .catch(err => {
+        console.log('Error: ', err.message);
+    });
+
+function plot_glomeruli(data) {
     for (var i = 0; i < data.length; i++) {
-        var geometry1 = new THREE.SphereGeometry(40, 32, 32); // (radius, widthSegments, heightSegments)
+        var geometry1 = new THREE.SphereGeometry(30, 20, 20); // (radius, widthSegments, heightSegments)
         var material1 = new THREE.MeshStandardMaterial({ opacity: 1.0, wireframe:false })
         var sphere1 = new THREE.Mesh(geometry1, material1)
         sphere1.position.set(data[i][0], data[i][1], data[i][2]);
-        console.log(sphere1)
         scene.add(sphere1);
         renderer.render(scene, camera);
     }
 }
 
+function plot_single_mitral(data) {
+    let keys = Object.keys(data["data"]["secs"])
+    for (var i = 0; i < keys.length; i++) {
+
+        if (keys[i].slice(0, 4) == "dend" | keys[i].slice(0, 4) == "apic") {
+            let points_array = data["data"]["secs"][keys[i]]["geom"]["pt3d"]
+            createSticks(points_array)
+            /*for (let j = 0; j < points_array.length; j++) {
+                let point = points_array[j]
+                const geometry = new THREE.CylinderGeometry(5, 5, 20, 32,30, false, );
+                const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                const cylinder = new THREE.Mesh(geometry, material);
+                scene.add(cylinder);
+                cylinder.position.set(point[0], point[1], point[2]);
+                
+                scene.add(createSticks(points_array));
+        renderer.render(scene, camera);
+        }
+        */
+        
+        }
+    }
+}
 
 function build_DOM() {
 
@@ -192,7 +213,6 @@ function resize() {
     var win_h = window.innerHeight;
     var win_w = window.innerWidth;
 
-    //console.log(document.getElementById("v_canvas").offsetWidth);
     sizes.height = win_h;
     sizes.width = win_w;
     document.getElementById("v_canvas").width = sizes.width
@@ -261,4 +281,58 @@ function create_accordion_item(header_id, collapse_id, button_content,
     item.appendChild(content)
 
     return item
+}
+
+function createSticks(vertices) {
+
+    const geometries = []
+    // const vertices = EnsembleManager.getSingleCentroidVerticesWithTrace(trace)
+
+    const endPoints = []
+    for (let i = 0; i < vertices.length - 1; i++) {
+        endPoints.push({ a_o: vertices[i], b_o: vertices[i + 1] })
+    }
+
+    for (let { a_o, b_o } of endPoints) {
+
+        // stick has length equal to distance between endpoints
+
+        const a = new THREE.Vector3(a_o[0], a_o[1], a_o[2]);
+        const b = new THREE.Vector3(b_o[0], b_o[1], b_o[2]);
+        const a_radius = a_o[3]
+        const b_radius = b_o[3]
+
+        const distance = a.distanceTo(b)
+        const cylinder = new THREE.CylinderGeometry(a_radius, b_radius, distance, 80, 80)
+
+        // stick endpoints define the axis of stick alignment
+        const { x: ax, y: ay, z: az } = a
+        const { x: bx, y: by, z: bz } = b
+        const stickAxis = new THREE.Vector3(bx - ax, by - ay, bz - az).normalize()
+
+        // Use quaternion to rotate cylinder from default to target orientation
+        const quaternion = new THREE.Quaternion()
+        const cylinderUpAxis = new THREE.Vector3(0, 1, 0)
+        quaternion.setFromUnitVectors(cylinderUpAxis, stickAxis)
+        cylinder.applyQuaternion(quaternion)
+
+        // Translate oriented stick to location between endpoints
+        cylinder.translate((bx + ax) / 2, (by + ay) / 2, (bz + az) / 2)
+
+        const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        const mesh = new THREE.Mesh(cylinder, material);
+        scene.add(mesh);
+        renderer.render(scene, camera);
+        // add to geometry list
+        //geometries.push(cylinder)
+
+    }
+
+    // Aggregate geometry list into single BufferGeometry
+    //const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    //const mesh = new THREE.Mesh(geometries[0], material);
+    //mesh.name = 'stick';
+    //console.log(mesh)
+
+    //return mesh;
 }
