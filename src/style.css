@@ -1,0 +1,41 @@
+.webgl {
+    background: black;
+}
+
+body {
+    padding: 0px;
+    margin: 0px;
+    overflow: hidden;
+}
+.page-container {
+    background-color: black;
+}
+
+.params {
+    border-style: solid;
+    border-color: black;
+    border-width: 1px;
+}
+
+.dg.ac {
+    position: absolute;
+}
+
+#canvas-container {
+    color: red;
+    background-color: green;
+    height: 100px;
+}
+
+.banner {
+    color: white;
+    background-color: black;
+    height: 100px;
+}
+
+.accordion-button, .accordion-body{
+    padding: 2px !important;
+    font-size: 13px !important;
+    color: white;
+    background-color: black;
+}
