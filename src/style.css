@@ -5,37 +5,84 @@
 body {
     padding: 0px;
     margin: 0px;
-    overflow: hidden;
 }
 .page-container {
     background-color: black;
 }
 
-.params {
-    border-style: solid;
-    border-color: black;
-    border-width: 1px;
+#params {
+    padding: 10px;
+    border-right-style: solid;
+    border-right-color: dimgrey;
+    border-right-width: 1px;
+}
+
+#params * {
+    font-size: 12px !important;
+}
+
+#page {
+    width: 100%;
+    height: 100%;
 }
 
 .dg.ac {
     position: absolute;
 }
 
-#canvas-container {
-    color: red;
-    background-color: green;
-    height: 100px;
+.canvas-container {
+    border-right-style: solid;
+    border-right-color: red;
+    border-right-width: 2px;
 }
 
 .banner {
     color: white;
     background-color: black;
-    height: 100px;
+    height: 80px !important;
+    border-bottom-style: solid;
+    border-bottom-color: dimgrey;
+    border-bottom-width: 1px;
+    vertical-align: middle;
 }
 
 .accordion-button, .accordion-body{
     padding: 2px !important;
     font-size: 13px !important;
-    color: white;
     background-color: black;
+    color: white;
+}
+
+
+.banner-title {
+    vertical-align: middle !important;
+    text-align: center;
+    font-size: 28px;
+}
+
+.list-group {
+    max-height: 230px;
+    margin-bottom: 10px;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+
+.list-group-item {
+    margin: 0px !important;
+    padding: 0px !important;
+    font-size: 12px !important;
+}
+
+.cell-box-btn {
+    margin-top: 8px !important;
+    margin-bottom: 8px !important;
+    padding-right: 12px !important;
+    padding-left: 12px !important;
+}
+
+.cell-btn {
+    margin: 2px !important;
+    padding: 0px !important;
+    font-size: 12px !important;
 }
