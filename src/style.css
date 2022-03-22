@@ -6,6 +6,7 @@ body {
     padding: 0px;
     margin: 0px;
 }
+
 .page-container {
     background-color: black;
 }
@@ -36,17 +37,8 @@ body {
     border-right-width: 2px;
 }
 
-.banner {
-    color: white;
-    background-color: black;
-    height: 80px !important;
-    border-bottom-style: solid;
-    border-bottom-color: dimgrey;
-    border-bottom-width: 1px;
-    vertical-align: middle;
-}
 
-.accordion-button, .accordion-body{
+.accordion-button, .accordion-body {
     padding: 2px !important;
     font-size: 13px !important;
     background-color: black;
@@ -54,11 +46,7 @@ body {
 }
 
 
-.banner-title {
-    vertical-align: middle !important;
-    text-align: center;
-    font-size: 28px;
-}
+
 
 .list-group {
     max-height: 230px;
@@ -72,7 +60,14 @@ body {
     margin: 0px !important;
     padding: 0px !important;
     font-size: 12px !important;
+    color: lightgrey !important;
+    background-color: dimgrey !important;
 }
+
+    .list-group-item.active {
+        background-color: whitesmoke !important;
+        color: darkslategrey !important;
+    }
 
 .cell-box-btn {
     margin-top: 8px !important;
@@ -85,4 +80,26 @@ body {
     margin: 2px !important;
     padding: 0px !important;
     font-size: 12px !important;
+}
+
+
+/* banner */
+.banner {
+    color: white;
+    background-color: #093c30;
+    min-height: 50px !important;
+    border-bottom-style: solid;
+    border-bottom-color: dimgrey;
+    border-bottom-width: 1px;
+    padding-top: 6px;
+}
+
+.banner-element {
+    vertical-align: middle !important;
+    text-align: center;
+    font-family: 'Open Sans';
+}
+
+.banner-element.title {
+    font-size: 22px;
 }
