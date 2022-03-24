@@ -17,17 +17,32 @@ const loadImage = require('load-img');
  * SET BULB'S ELEMENT GRAPHICS PROPERTIES
  */
 
+/* gids - info
+ * 0 -> 634 mitral cells
+ * 635 -> 1904 mtufted cells
+ * 1905 -> 390516 granules
+ * 390517 -> ... blanes
+ *  -> ... glomeruli
+ * 
+*/
+
+const scale_factor = 1
+const granularity = 3
+const cylinderResolution = 90
+const sphereResolution = 90
+const glom_base_radius = 30
+const glom_selected_radius = 62
+
 const glom_base_color = new THREE.Color(0xe74c3c)
 const glom_hovered_color = new THREE.Color(0x9a7d0a)
 const glom_selected_color = new THREE.Color(0xffff00)
 
-const glom_base_radius = 35
-const glom_selected_radius = 68
-const glom_base_geometry = new THREE.SphereGeometry(glom_base_radius, 15, 15);
-const glom_hovered_geometry = new THREE.SphereGeometry(glom_selected_radius, 15, 15);
-const glom_selected_geometry = new THREE.SphereGeometry(glom_base_radius, 15, 15);
+const glom_base_geometry = new THREE.SphereGeometry(glom_base_radius, sphereResolution, sphereResolution);
+const glom_hovered_geometry = new THREE.SphereGeometry(glom_selected_radius, sphereResolution, sphereResolution);
+const glom_selected_geometry = new THREE.SphereGeometry(glom_base_radius, sphereResolution, sphereResolution);
 
-const scale_factor = 1.4
+const cameraPositions = [3840, 485, 1367]
+const cameraFov = 70
 
 // Build the page DOM
 buildDOM()
@@ -40,8 +55,10 @@ createCellSelectionBox()
 const scene = new THREE.Scene();
 const pointLight = new THREE.PointLight(0xffffff, 1)
 const pointLight2 = new THREE.PointLight(0xffffff, 1)
-var sizes = { width: 1000, height: 800 }
-const camera = new THREE.PerspectiveCamera(20, sizes.width / sizes.height, 0.001, 200000)
+const pointLight3 = new THREE.PointLight(0xffffff, 1)
+const pointLight4 = new THREE.PointLight(0xffffff, 1)
+var sizes = { width: window.innerWidth, height: window.innerHeight }
+const camera = new THREE.PerspectiveCamera(cameraFov, sizes.width / sizes.height, 0.001, 20000)
 const canvas = document.querySelector('#v_canvas')
 const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
@@ -49,6 +66,7 @@ const renderer = new THREE.WebGLRenderer({
     antialias: true
 })
 var controls = new OrbitControls(camera, renderer.domElement);
+camera.position.set(cameraPositions[0], cameraPositions[1], cameraPositions[2])
 
 
 /*
@@ -68,15 +86,15 @@ var plottedELements = {}
 window.addEventListener('resize', resize);
 
 createScene()
-resize();
+resize()
 animate()
+//createGUI()
 
 
 axios.get('https://127.0.0.1:8000/ob/ob_dict')
     .then(res => {
         //data = res.data.glom_coord;
-        glom_list = plotGlomeruli(res.data.glom_coord)
-        camera.position.set(6151, -9950, 3251)
+        glom_list = plotGlomeruli(res.data.glom_coord)        
         let glom_ids = []
         for (let i = 0; i < glom_list.length; i++) {
             glom_ids.push(i.toString())
@@ -117,9 +135,13 @@ function getCellPosition() {
 function createScene() {
     // Lights
     pointLight.position.set(0, 0, 0)
-    pointLight2.position.set(0, 0, 70000)
+    pointLight2.position.set(0, 0, 30000)
+    pointLight3.position.set(0, 5000, 0)
+    //pointLight4.position.set(6000, 0, 0)
     scene.add(pointLight)
     scene.add(pointLight2)
+    scene.add(pointLight3)
+    scene.add(pointLight4)
 
     // Base camera
     scene.add(camera)
@@ -128,7 +150,7 @@ function createScene() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     controls.update()
-
+    camera.position.set(cameraPositions[0], cameraPositions[1], cameraPositions[2])
     renderer.render(scene, camera);
 }
 
@@ -136,7 +158,7 @@ function createGUI() {
     const gui = new GUI()
 
     const cameraFolder = gui.addFolder('Camera Controls')
-
+    
     cameraFolder.add(camera.position, 'x', -100000, 100000).listen()
     cameraFolder.add(camera.position, 'y', -100000, 100000).listen()
     cameraFolder.add(camera.position, 'z', -200000, 200000).listen()
@@ -365,8 +387,6 @@ function buildDOM() {
     let bannerLogo = cf('div')
     bannerLogo.classList.add('col',)
 
-
-
     let bannerLogoLink = cf('a')
     bannerLogoLink.setAttribute('href', 'https://ebrains.eu/')
     bannerLogoLink.setAttribute('target', '_blank')
@@ -532,26 +552,30 @@ function gecn(classes) {
  * PLOTTING FUNCTIONS  
  */
 
-function createSticks(vertices, type) {
-
+function createSticks(vertices, type, lowResolution) {
+    let allMeshes = []
     const endPoints = []
-    for (let i = 0; i < vertices.length - 1; i++) {
-        endPoints.push({ a_o: vertices[i], b_o: vertices[i + 1] })
+    const len = vertices.length
+
+    for (let i = 0; i < len - 1; i += granularity) {
+        let endIdx = Math.min(len-1, i + granularity)
+        endPoints.push({ a_o: vertices[i], b_o: vertices[endIdx] })
     }
 
+    
     for (let j = 0; j < endPoints.length; j++) {
 
         const { a_o, b_o } = endPoints[j]
 
         // stick has length equal to distance between endpoints
-        const type_colors = { "dend": 0x339933, "apic": 0x339999, "tuft": 0xc6ecc6, "soma": 0x0000ff }
+        const type_colors = { "dend": 0xbb8fce , "apic": 0x339999, "tuft": 0xc6ecc6, "soma": 0x0000ff }
         const a = new THREE.Vector3(a_o[0], a_o[1], a_o[2]);
         const b = new THREE.Vector3(b_o[0], b_o[1], b_o[2]);
-        const a_radius = a_o[3] * scale_factor
-        const b_radius = b_o[3] * scale_factor
+        const a_radius = a_o[3]  * scale_factor
+        const b_radius = b_o[3]  * scale_factor
 
         const distance = a.distanceTo(b)
-        const cylinder = new THREE.CylinderGeometry(a_radius, b_radius, distance, 70, 70)
+        const cylinder = new THREE.CylinderGeometry(a_radius, b_radius, distance, cylinderResolution, cylinderResolution)
 
         // stick endpoints define the axis of stick alignment
         const { x: ax, y: ay, z: az } = a
@@ -567,13 +591,16 @@ function createSticks(vertices, type) {
         // Translate oriented stick to location between endpoints
         cylinder.translate((bx + ax) / 2, (by + ay) / 2, (bz + az) / 2)
 
-        const material = new THREE.MeshBasicMaterial({ color: type_colors[type] });
+        const material = new THREE.MeshStandardMaterial({ depthWrite: false, color: type_colors[type] });
         const mesh = new THREE.Mesh(cylinder, material);
         mesh.name = "stick"
 
-        scene.add(mesh);
-        renderer.render(scene, camera);
+        allMeshes.push(mesh)
+        
+        
     }
+
+    return allMeshes
 
     //return mesh;
 }
@@ -583,21 +610,31 @@ function plotGlomeruli(data) {
     var glom_list = []
     for (var i = 0; i < data.length; i++) {
         var geometry = glom_base_geometry; // (radius, widthSegments, heightSegments)
-        var material = new THREE.MeshStandardMaterial({ opacity: 1.0, wireframe: false, color: glom_base_color })
+        var material = new THREE.MeshStandardMaterial({ depthWrite:false, transparent: false, opacity: 1.0, wireframe: false, color: glom_base_color })
         var sphere = new THREE.Mesh(geometry, material)
         sphere.name = "glom_" + i.toString();
         glom_list.push(i)
         sphere.position.set(data[i][0], data[i][1], data[i][2]);
         scene.add(sphere);
-        renderer.render(scene, camera);
+        
     }
+    renderer.render(scene, camera);
     return glom_list
 }
 
 function plotCells(data) {
+    let allCellMeshes = []
     let keys = Object.keys(data["data"]["secs"])
-    for (var i = 0; i < keys.length; i++) {
-        let points_array = data["data"]["secs"][keys[i]]["geom"]["pt3d"]
-        createSticks(points_array, keys[i].slice(0, 4))
+    for (let k of keys) {
+        let points_array = data["data"]["secs"][k]["geom"]["pt3d"]
+        allCellMeshes.push(createSticks(points_array, k.slice(0, 4)))
     }
+
+    for (let m of allCellMeshes) {
+        for (let n of m) {
+
+            scene.add(n)
+        }        
+    }
+    renderer.render(scene, camera);
 }
