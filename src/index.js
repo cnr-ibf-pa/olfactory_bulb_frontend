@@ -44,9 +44,15 @@ const glom_selected_geometry = new THREE.SphereGeometry(glom_base_radius, sphere
 const cameraPositions = [3840, 485, 1367]
 const cameraFov = 70
 
+const listeners = {
+    "glom": { "click": selectGlom, "mouseover": highlightElement, "mouseleave": restoreColor },
+    //"mitr": { "click": , "mouseover": , "mouseleave": },
+    //"tmitr": { "click": , "mouseover": , "mouseleave": },
+
+}
 // Build the page DOM
-buildDOM()
-createCellSelectionBox()
+window.onload = buildDOM();
+
 
 
 /*
@@ -72,13 +78,19 @@ camera.position.set(cameraPositions[0], cameraPositions[1], cameraPositions[2])
 /*
  * SET GLOBAL VARIABLES 
  */
-var selected_glom = "glom_no_selection";
+
+var selected_glom = "glom--"
+var selected_mitr = "mitr--"
+var selected_tmitr = "mitr--"
+
 var cell_dict = {
     "glom_0": {
         "mitr": ["0", "1", "2", "3", "4"],
         "tmitr": ["5", "6", "7", "8", "9"]
     }
 }
+
+var plottedNet = {}
 
 var glom_list;
 var plottedELements = {}
@@ -99,7 +111,7 @@ axios.get('https://127.0.0.1:8000/ob/ob_dict')
         for (let i = 0; i < glom_list.length; i++) {
             glom_ids.push(i.toString())
         }
-        populateCellDropdown("glom-box", glom_ids)
+        populateCellDropdown("glom", glom_ids)
     })
     .catch(err => {
         console.log('Error: ', err.message);
@@ -114,18 +126,25 @@ axios.get('https://127.0.0.1:8000/ob/ob_dict')
  * *********
  */
 
+
+
+function updateStoredCellId() {
+    if ("mitr-box-class" in this.classes) {
+
+    }
+}
+
 function getCellPosition() {
     let boxClass
     if (this.id == "add-mitral-btn") {
-        boxClass = "mitr-box-class"
+        boxClass = "mitr-box-el"
     } else {
-        boxClass = "tmitr-box-class"
+        boxClass = "tmitr-box-el"
     }
-    let cell = gecn(boxClass + " list-group-item active active")[0].innerText
-    console.log(cell)
+    let cell = gecn(boxClass + " list-group-item active")[0].innerText
     axios.get('https://127.0.0.1:8000/ob/example_mitral/' + cell)
         .then(res => {
-            plotCells(res);
+            plotCells(res, cell);
         })
         .catch(err => {
             console.log('Error: ', err.message);
@@ -166,15 +185,12 @@ function createGUI() {
 }
 
 // highlight element when hovering over
-function highlight_element() {
+function highlightElement() {
     let name = this.id
 
     if (name == selected_glom) {
         return
-    } else if (name == "glom_no_selection" && selected_glom == "glom_no_selection") {
-        return
-
-    } else {
+    } else if (name != "glom--") {
         let element = scene.getObjectByName(name)
         element.material.color = glom_hovered_color
         element.geometry = glom_hovered_geometry
@@ -186,10 +202,11 @@ function restoreColor() {
     let name = this.id
     if (name == selected_glom) {
         return
+    } else if (name != "glom--") {
+        let element = scene.getObjectByName(name)
+        element.material.color = glom_base_color
+        element.geometry = glom_base_geometry
     }
-    let element = scene.getObjectByName(name)
-    element.material.color = glom_base_color
-    element.geometry = glom_base_geometry
 }
 
 // handle glomeruli selection
@@ -197,16 +214,16 @@ function selectGlom() {
     let name = this.id
     if (name == selected_glom) {
         return
-    } else if (name == "glom_no_selection") {
+    } else if (name == "glom--") {
         let old = scene.getObjectByName(selected_glom)
         old.material.color = glom_base_color
         old.geometry = glom_base_geometry
-        selected_glom = "glom_no_selection"
-        populateCellDropdown("mitr-box", [])
-        populateCellDropdown("tmitr-box", [])
+        selected_glom = "glom--"
+        populateCellDropdown("mitr", [])
+        populateCellDropdown("tmitr", [])
     } else {
         // reset previously selected cell
-        if (selected_glom != "glom_no_selection") {
+        if (selected_glom != "glom--") {
             let old = scene.getObjectByName(selected_glom)
             old.material.color = glom_base_color
             old.geometry = glom_base_geometry
@@ -220,11 +237,11 @@ function selectGlom() {
         if (name == "glom_0") {
             let mitral = cell_dict["glom_0"]["mitr"]
             let tmitral = cell_dict["glom_0"]["tmitr"]
-            populateCellDropdown("mitr-box", mitral)
-            populateCellDropdown("tmitr-box", tmitral)
+            populateCellDropdown("mitr", mitral)
+            populateCellDropdown("tmitr", tmitral)
         } else {
-            populateCellDropdown("mitr-box", [])
-            populateCellDropdown("tmitr-box", [])
+            populateCellDropdown("mitr", [])
+            populateCellDropdown("tmitr", [])
         }
     }
 }
@@ -237,49 +254,55 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-function populateCellDropdown(boxId, elementList) {
+function populateCellDropdown(elType, elementList) {
 
-    let elId = boxId + "-names"
+    // elType is: "glom", "mitr", "tmitr"
+
+    // create box
+    let elId = elType + "-box-names"
 
     let currentEl = ge(elId)
+
     if (currentEl) {
         currentEl.remove()
     }
 
+    // remove current cell box
+    if (ge(elId)) { 
+        ge(elId).remove()
+    }
+
     let cellBox = cf('div')
     cellBox.classList.add("list-group")
-    cellBox.id = boxId + "-names"
+    cellBox.id = elId
 
-    var el = cf('a')
-    el.classList.add("list-group-item", "list-group-item-action", boxId + "-class")
-    el.classList.add("active");
-    el.setAttribute("aria-current", "true");
-    el.setAttribute("href", "#")
-    el.setAttribute("data-bs-toggle", "list");
-    el.innerHTML = "--"
-    el.id = "glom_no_selection"
-    if (boxId == "glom-box") {
-        el.addEventListener("click", selectGlom);
-    }
-    cellBox.appendChild(el)
-
-
-    for (let i of elementList) {
+    // prepend first null element
+    const allElements = ["--"].concat(elementList)
+    for (let i of allElements) {
         var el = cf('a')
-        el.classList.add("list-group-item", "list-group-item-action", boxId + "-class")
+        el.classList.add("list-group-item", "list-group-item-action", elType + "-box-el")
         el.setAttribute("href", "#")
         el.setAttribute("data-bs-toggle", "list");
         el.innerHTML = i
-        if (boxId == "glom-box") {
-            el.addEventListener("mouseover", highlight_element);
-            el.addEventListener("mouseleave", restoreColor);
-            el.addEventListener("click", selectGlom);
-            el.id = "glom_" + i.toString()
+ 
+        if (i == "--") {
+            el.classList.add("active");
+            el.setAttribute("aria-current", "true");
+            el.id = elType + "--"
+        } else {
+            el.id = elType + "_" + i.toString()
         }
         cellBox.appendChild(el)
+
+        if (elType == "glom") {
+            el.addEventListener("click", selectGlom)
+            el.addEventListener("mouseover", highlightElement)
+            el.addEventListener("mouseleave", restoreColor)
+        }
+ 
     }
 
-    ge(boxId).appendChild(cellBox)
+    ge(elType + "-box").appendChild(cellBox)
     return cellBox
 }
 
@@ -290,6 +313,7 @@ function createCellSelectionBox() {
     let glomBox = cf('div')
     glomBox.id = "glom-box"
     glomBox.classList.add("glom-box")
+
     let glomBoxTitle = cf('h5')
     glomBoxTitle.innerHTML = "Glomeruli"
     glomBoxTitle.classList.add('group-title')
@@ -299,6 +323,7 @@ function createCellSelectionBox() {
     let mitrBox = cf('div')
     mitrBox.id = "mitr-box"
     mitrBox.classList.add("mitr-box")
+
     let mitrBoxTitle = cf('h5')
     mitrBoxTitle.innerHTML = "Mitral Cells"
     mitrBoxTitle.classList.add('group-title')
@@ -308,6 +333,7 @@ function createCellSelectionBox() {
     let tmitrBox = cf('div')
     tmitrBox.id = "tmitr-box"
     tmitrBox.classList.add("tmitr-box")
+
     let tmitrBoxTitle = cf('h5')
     tmitrBoxTitle.innerHTML = "TMitral Cells"
     tmitrBoxTitle.classList.add('group-title')
@@ -459,6 +485,8 @@ function buildDOM() {
 
     document.body.appendChild(page)
 
+    createCellSelectionBox()
+
     return;
 }
 
@@ -552,7 +580,7 @@ function gecn(classes) {
  * PLOTTING FUNCTIONS  
  */
 
-function createSticks(vertices, type, lowResolution) {
+function createSticks(vertices, type, cell) {
     let allMeshes = []
     const endPoints = []
     const len = vertices.length
@@ -561,7 +589,6 @@ function createSticks(vertices, type, lowResolution) {
         let endIdx = Math.min(len-1, i + granularity)
         endPoints.push({ a_o: vertices[i], b_o: vertices[endIdx] })
     }
-
     
     for (let j = 0; j < endPoints.length; j++) {
 
@@ -601,8 +628,6 @@ function createSticks(vertices, type, lowResolution) {
     }
 
     return allMeshes
-
-    //return mesh;
 }
 
 // plot glomeruli
@@ -616,18 +641,23 @@ function plotGlomeruli(data) {
         glom_list.push(i)
         sphere.position.set(data[i][0], data[i][1], data[i][2]);
         scene.add(sphere);
+
+        plottedNet[sphere.name] = {
+            "mitr_obj": {},
+        }
         
     }
     renderer.render(scene, camera);
     return glom_list
 }
 
-function plotCells(data) {
+function plotCells(data, cell) {
     let allCellMeshes = []
     let keys = Object.keys(data["data"]["secs"])
+    console.log(data)
     for (let k of keys) {
         let points_array = data["data"]["secs"][k]["geom"]["pt3d"]
-        allCellMeshes.push(createSticks(points_array, k.slice(0, 4)))
+        allCellMeshes.push(createSticks(points_array, k.slice(0, 4), cell))
     }
 
     for (let m of allCellMeshes) {
