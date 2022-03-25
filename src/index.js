@@ -9,6 +9,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
 import EBRAINS_logo from "../static/img/ebrains_logo.svg"
+import { Scene } from 'three'
 
 const axios = require('axios');
 const loadImage = require('load-img');
@@ -18,16 +19,17 @@ const loadImage = require('load-img');
  */
 
 /* gids - info
- * 0 -> 634 mitral cells
- * 635 -> 1904 mtufted cells
- * 1905 -> 390516 granules
- * 390517 -> ... blanes
- *  -> ... glomeruli
- * 
+mitral: [0-634]
+mitral tufted: [635-1904]
+granule: [1905-390516]
+blanes: [390517-390898]
 */
+const numMitrPerGlom = 5
+const numTMitrPerGlom = 10
+const numMitral = 635
 
 const scale_factor = 1
-const granularity = 3
+const granularity = 5
 const cylinderResolution = 90
 const sphereResolution = 90
 const glom_base_radius = 30
@@ -54,7 +56,6 @@ const listeners = {
 window.onload = buildDOM();
 
 
-
 /*
  * SET SCENE PARAMETERS 
  */
@@ -64,7 +65,7 @@ const pointLight2 = new THREE.PointLight(0xffffff, 1)
 const pointLight3 = new THREE.PointLight(0xffffff, 1)
 const pointLight4 = new THREE.PointLight(0xffffff, 1)
 var sizes = { width: window.innerWidth, height: window.innerHeight }
-const camera = new THREE.PerspectiveCamera(cameraFov, sizes.width / sizes.height, 0.001, 20000)
+const camera = new THREE.PerspectiveCamera(cameraFov, sizes.width / sizes.height, 50, 15000)
 const canvas = document.querySelector('#v_canvas')
 const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
@@ -82,43 +83,53 @@ camera.position.set(cameraPositions[0], cameraPositions[1], cameraPositions[2])
 var selected_glom = "glom--"
 var selected_mitr = "mitr--"
 var selected_tmitr = "mitr--"
-
-var cell_dict = {
-    "glom_0": {
-        "mitr": ["0", "1", "2", "3", "4"],
-        "tmitr": ["5", "6", "7", "8", "9"]
-    }
-}
+var plottedELements = []
 
 var plottedNet = {}
 
+
 var glom_list;
-var plottedELements = {}
+
+var simulatedCellIds = []
 
 window.addEventListener('resize', resize);
 
 createScene()
 resize()
 animate()
+initializeSceneContent()
+getSimulatedCellIds()
 //createGUI()
 
+function initializeSceneContent() {
+    axios.get('https://127.0.0.1:8000/ob/ob_dict')
+        .then(res => {
+            //data = res.data.glom_coord;
+            glom_list = plotGlomeruli(res.data.glom_coord)
+            let glom_ids = []
+            for (let i = 0; i < glom_list.length; i++) {
+                glom_ids.push(i.toString())
+            }
+            populateCellDropdown("glom", glom_ids)
+            populateCellDropdown("mitr", [])
+            populateCellDropdown("tmitr", [])
 
-axios.get('https://127.0.0.1:8000/ob/ob_dict')
-    .then(res => {
-        //data = res.data.glom_coord;
-        glom_list = plotGlomeruli(res.data.glom_coord)        
-        let glom_ids = []
-        for (let i = 0; i < glom_list.length; i++) {
-            glom_ids.push(i.toString())
-        }
-        populateCellDropdown("glom", glom_ids)
-    })
-    .catch(err => {
-        console.log('Error: ', err.message);
-    });
+        })
+        .catch(err => {
+            console.log('Error: ', err.message);
+        });
+}
 
+function getSimulatedCellIds() {
 
-
+    axios.get('https://127.0.0.1:8000/ob/simulated_cell_ids')
+        .then(res => {
+            simulatedCellIds = res["data"]["cell_ids"];
+        })
+        .catch(err => {
+            console.log('Error: ', err.message);
+        });
+}
 
 /*
  * *********
@@ -126,15 +137,19 @@ axios.get('https://127.0.0.1:8000/ob/ob_dict')
  * *********
  */
 
-
-
-function updateStoredCellId() {
-    if ("mitr-box-class" in this.classes) {
-
+function cleanCanvas() {
+    for (let k in plottedNet) {
+        if (k.slice(0, 3) != "glom") {
+            for (let el of plottedNet[k]) {
+                scene.remove(scene.getObjectByName(el))
+            }
+            delete plottedNet[k]
+        }
     }
 }
 
-function getCellPosition() {
+
+function plotCell() {
     let boxClass
     if (this.id == "add-mitral-btn") {
         boxClass = "mitr-box-el"
@@ -142,13 +157,56 @@ function getCellPosition() {
         boxClass = "tmitr-box-el"
     }
     let cell = gecn(boxClass + " list-group-item active")[0].innerText
+    if (Object.keys(plottedNet).includes(cell))
+        return
     axios.get('https://127.0.0.1:8000/ob/example_mitral/' + cell)
         .then(res => {
-            plotCells(res, cell);
+            addCell(res, cell);
         })
         .catch(err => {
             console.log('Error: ', err.message);
         });
+}
+
+
+function removeCell() {
+    let boxClass
+    if (this.id == "remove-mitral-btn") {
+        boxClass = "mitr-box-el"
+    } else {
+        boxClass = "tmitr-box-el"
+    }
+    let cell = gecn(boxClass + " list-group-item active")[0].innerText
+
+    for (let el of plottedNet[cell])
+        scene.remove(scene.getObjectByName(el))
+    delete plottedNet[cell]
+}
+
+
+
+function getCellIds(glom_id) {
+    let idNum = parseInt(glom_id)
+    let startMitr = idNum * numMitrPerGlom
+    let endMitr = idNum * numMitrPerGlom + numMitrPerGlom
+    let startTMitr = numMitral + idNum * numTMitrPerGlom
+    let endTMitr = numMitral + idNum * numTMitrPerGlom + numTMitrPerGlom
+    let mitr = _.range(startMitr, endMitr)
+    let tmitr = _.range(startTMitr, endTMitr)
+    let mitrString = []
+    let tmitrString = []
+    for (let s of mitr) {
+        mitrString.push(s.toString())
+    }
+
+    for (let s of tmitr) {
+        tmitrString.push(s.toString())
+    }
+
+    return {
+        "mitr": mitrString,
+        "tmitr": tmitrString
+    }
 }
 
 function createScene() {
@@ -177,7 +235,7 @@ function createGUI() {
     const gui = new GUI()
 
     const cameraFolder = gui.addFolder('Camera Controls')
-    
+
     cameraFolder.add(camera.position, 'x', -100000, 100000).listen()
     cameraFolder.add(camera.position, 'y', -100000, 100000).listen()
     cameraFolder.add(camera.position, 'z', -200000, 200000).listen()
@@ -234,15 +292,23 @@ function selectGlom() {
         element.geometry = glom_selected_geometry
 
         // to be replaced with querying HPC
-        if (name == "glom_0") {
-            let mitral = cell_dict["glom_0"]["mitr"]
-            let tmitral = cell_dict["glom_0"]["tmitr"]
-            populateCellDropdown("mitr", mitral)
-            populateCellDropdown("tmitr", tmitral)
-        } else {
-            populateCellDropdown("mitr", [])
-            populateCellDropdown("tmitr", [])
-        }
+        let cellDict = getCellIds(name.replace("glom_", ""))
+        let mitral = cellDict["mitr"].filter(function (x) {
+            // checking second array contains the element "x"
+            if (simulatedCellIds.indexOf(x) != -1)
+                return true;
+            else
+                return false;
+        });
+        let tmitral = cellDict["tmitr"].filter(function (x) {
+            // checking second array contains the element "x"
+            if (simulatedCellIds.indexOf(x) != -1)
+                return true;
+            else
+                return false;
+        });
+        populateCellDropdown("mitr", mitral)
+        populateCellDropdown("tmitr", tmitral)
     }
 }
 
@@ -268,7 +334,7 @@ function populateCellDropdown(elType, elementList) {
     }
 
     // remove current cell box
-    if (ge(elId)) { 
+    if (ge(elId)) {
         ge(elId).remove()
     }
 
@@ -284,7 +350,7 @@ function populateCellDropdown(elType, elementList) {
         el.setAttribute("href", "#")
         el.setAttribute("data-bs-toggle", "list");
         el.innerHTML = i
- 
+
         if (i == "--") {
             el.classList.add("active");
             el.setAttribute("aria-current", "true");
@@ -299,7 +365,7 @@ function populateCellDropdown(elType, elementList) {
             el.addEventListener("mouseover", highlightElement)
             el.addEventListener("mouseleave", restoreColor)
         }
- 
+
     }
 
     ge(elType + "-box").appendChild(cellBox)
@@ -362,27 +428,38 @@ function createCellSelectionBox() {
     addMitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
     addMitralBtn.innerHTML = "Add Mitral Cell"
     addMitralBtn.id = "add-mitral-btn"
-    addMitralBtn.addEventListener("click", getCellPosition)
+    addMitralBtn.addEventListener("click", plotCell)
 
     let addTmitralBtn = cf('button')
     addTmitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
     addTmitralBtn.innerHTML = "Add Tufted Mitral Cell"
     addTmitralBtn.id = "add-tmitral-btn"
-    addTmitralBtn.addEventListener("click", getCellPosition)
+    addTmitralBtn.addEventListener("click", plotCell)
 
 
-    let remove_mitral_btn = cf('button')
-    remove_mitral_btn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    remove_mitral_btn.innerHTML = "Remove Mitral Cell"
+    let removeMitralBtn = cf('button')
+    removeMitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
+    removeMitralBtn.innerHTML = "Remove Mitral Cell"
+    removeMitralBtn.id = "remove-mitral-btn"
+    removeMitralBtn.addEventListener("click", removeCell)
 
-    let remove_tmitral_btn = cf('button')
-    remove_tmitral_btn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    remove_tmitral_btn.innerHTML = "Remove Tufted Mitral Cell"
+
+    let removeTmitralBtn = cf('button')
+    removeTmitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
+    removeTmitralBtn.innerHTML = "Remove Tufted Mitral Cell"
+    removeTmitralBtn.id = "remove-tmitral-btn"
+    removeTmitralBtn.addEventListener("click", removeCell)
+
+    let cleanCanvasBtn = cf('button')
+    cleanCanvasBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
+    cleanCanvasBtn.innerHTML = "Clean 3D Plot"
+    cleanCanvasBtn.id = "clean-canvas-btn"
+    cleanCanvasBtn.addEventListener("click", cleanCanvas)
 
     boxButtonsAdd.appendChild(addMitralBtn)
     boxButtonsAdd.appendChild(addTmitralBtn)
-    boxButtonsRemove.appendChild(remove_mitral_btn)
-    boxButtonsRemove.appendChild(remove_tmitral_btn)
+    boxButtonsRemove.appendChild(removeMitralBtn)
+    boxButtonsRemove.appendChild(removeTmitralBtn)
 
     glomListBox.appendChild(glomBox)
     mitrListBox.appendChild(mitrBox)
@@ -395,6 +472,7 @@ function createCellSelectionBox() {
     ge("explorer-body").appendChild(listGroupsBox)
     ge("explorer-body").appendChild(boxButtonsAdd)
     ge("explorer-body").appendChild(boxButtonsRemove)
+    ge("explorer-body").appendChild(cleanCanvasBtn)
 }
 
 
@@ -560,7 +638,6 @@ function createAccordionItem(header_id, collapse_id, button_content,
 }
 
 
-
 // create element function
 function cf(type) {
     return document.createElement(type)
@@ -584,22 +661,24 @@ function createSticks(vertices, type, cell) {
     let allMeshes = []
     const endPoints = []
     const len = vertices.length
+    if (!Object.keys(plottedNet).includes(cell))
+        plottedNet[cell] = []
 
     for (let i = 0; i < len - 1; i += granularity) {
-        let endIdx = Math.min(len-1, i + granularity)
+        let endIdx = Math.min(len - 1, i + granularity)
         endPoints.push({ a_o: vertices[i], b_o: vertices[endIdx] })
     }
-    
+
     for (let j = 0; j < endPoints.length; j++) {
 
         const { a_o, b_o } = endPoints[j]
 
         // stick has length equal to distance between endpoints
-        const type_colors = { "dend": 0xbb8fce , "apic": 0x339999, "tuft": 0xc6ecc6, "soma": 0x0000ff }
+        const type_colors = { "dend": 0xbb8fce, "apic": 0x339999, "tuft": 0xc6ecc6, "soma": 0x0000ff }
         const a = new THREE.Vector3(a_o[0], a_o[1], a_o[2]);
         const b = new THREE.Vector3(b_o[0], b_o[1], b_o[2]);
-        const a_radius = a_o[3]  * scale_factor
-        const b_radius = b_o[3]  * scale_factor
+        const a_radius = a_o[3] * scale_factor
+        const b_radius = b_o[3] * scale_factor
 
         const distance = a.distanceTo(b)
         const cylinder = new THREE.CylinderGeometry(a_radius, b_radius, distance, cylinderResolution, cylinderResolution)
@@ -620,11 +699,14 @@ function createSticks(vertices, type, cell) {
 
         const material = new THREE.MeshStandardMaterial({ depthWrite: false, color: type_colors[type] });
         const mesh = new THREE.Mesh(cylinder, material);
-        mesh.name = "stick"
+        mesh.name = mesh.uuid
+
+        plottedNet[cell].push(mesh.uuid)
+
 
         allMeshes.push(mesh)
-        
-        
+
+
     }
 
     return allMeshes
@@ -635,26 +717,24 @@ function plotGlomeruli(data) {
     var glom_list = []
     for (var i = 0; i < data.length; i++) {
         var geometry = glom_base_geometry; // (radius, widthSegments, heightSegments)
-        var material = new THREE.MeshStandardMaterial({ depthWrite:false, transparent: false, opacity: 1.0, wireframe: false, color: glom_base_color })
+        var material = new THREE.MeshStandardMaterial({ depthWrite: false, transparent: false, opacity: 1.0, wireframe: false, color: glom_base_color })
         var sphere = new THREE.Mesh(geometry, material)
         sphere.name = "glom_" + i.toString();
         glom_list.push(i)
         sphere.position.set(data[i][0], data[i][1], data[i][2]);
         scene.add(sphere);
-
-        plottedNet[sphere.name] = {
-            "mitr_obj": {},
-        }
-        
+        plottedNet[sphere.name] = [sphere.uuid]
     }
     renderer.render(scene, camera);
     return glom_list
 }
 
-function plotCells(data, cell) {
+
+// 
+function addCell(data, cell) {
     let allCellMeshes = []
     let keys = Object.keys(data["data"]["secs"])
-    console.log(data)
+
     for (let k of keys) {
         let points_array = data["data"]["secs"][k]["geom"]["pt3d"]
         allCellMeshes.push(createSticks(points_array, k.slice(0, 4), cell))
@@ -662,9 +742,8 @@ function plotCells(data, cell) {
 
     for (let m of allCellMeshes) {
         for (let n of m) {
-
             scene.add(n)
-        }        
+        }
     }
     renderer.render(scene, camera);
 }
