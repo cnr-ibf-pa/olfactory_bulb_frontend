@@ -24,6 +24,11 @@ mitral tufted: [635-1904]
 granule: [1905-390516]
 blanes: [390517-390898]
 */
+const mcLimits = _.range(0, 634)
+const tmcLimits = _.range(635, 1904)
+const granuleLimits = _.range(1905, 390516)
+const blanesLimits = _.range(390517, 390898)
+
 const numMitrPerGlom = 5
 const numTMitrPerGlom = 10
 const numMitral = 635
@@ -140,10 +145,13 @@ function getSimulatedCellIds() {
 function cleanCanvas() {
     for (let k in plottedNet) {
         if (k.slice(0, 3) != "glom") {
-            for (let el of plottedNet[k]) {
-                scene.remove(scene.getObjectByName(el))
-            }
+            if ((this.id == "clean-mc-btn" && mcLimits.includes(parseInt(k))) || 
+                (this.id == "clean-tmc-btn" && tmcLimits.includes(parseInt(k)))) {
+                for (let el of plottedNet[k]) {
+                    scene.remove(scene.getObjectByName(el))
+                }
             delete plottedNet[k]
+            }
         }
     }
 }
@@ -401,7 +409,7 @@ function createCellSelectionBox() {
     tmitrBox.classList.add("tmitr-box")
 
     let tmitrBoxTitle = cf('h5')
-    tmitrBoxTitle.innerHTML = "TMitral Cells"
+    tmitrBoxTitle.innerHTML = "T-Mitral Cells"
     tmitrBoxTitle.classList.add('group-title')
     tmitrBox.appendChild(tmitrBoxTitle)
 
@@ -418,48 +426,60 @@ function createCellSelectionBox() {
     let tmitrListBox = cf('div')
     tmitrListBox.classList.add('col')
 
-    let boxButtonsAdd = cf('div')
-    boxButtonsAdd.classList.add('row', 'cell-box-btn')
+    let boxButtonsMC = cf('div')
+    boxButtonsMC.classList.add('row', 'cell-box-btn')
 
-    let boxButtonsRemove = cf('div')
-    boxButtonsRemove.classList.add('row', 'cell-box-btn')
+    let boxButtonsTMC = cf('div')
+    boxButtonsTMC.classList.add('row', 'cell-box-btn')
 
     let addMitralBtn = cf('button')
     addMitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    addMitralBtn.innerHTML = "Add Mitral Cell"
+    addMitralBtn.innerHTML = "Add MC"
     addMitralBtn.id = "add-mitral-btn"
     addMitralBtn.addEventListener("click", plotCell)
 
     let addTmitralBtn = cf('button')
     addTmitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    addTmitralBtn.innerHTML = "Add Tufted Mitral Cell"
+    addTmitralBtn.innerHTML = "Add T-MC"
     addTmitralBtn.id = "add-tmitral-btn"
     addTmitralBtn.addEventListener("click", plotCell)
 
 
     let removeMitralBtn = cf('button')
     removeMitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    removeMitralBtn.innerHTML = "Remove Mitral Cell"
+    removeMitralBtn.innerHTML = "Del MC"
     removeMitralBtn.id = "remove-mitral-btn"
     removeMitralBtn.addEventListener("click", removeCell)
 
 
     let removeTmitralBtn = cf('button')
     removeTmitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    removeTmitralBtn.innerHTML = "Remove Tufted Mitral Cell"
+    removeTmitralBtn.innerHTML = "Del T-MC"
     removeTmitralBtn.id = "remove-tmitral-btn"
     removeTmitralBtn.addEventListener("click", removeCell)
 
-    let cleanCanvasBtn = cf('button')
-    cleanCanvasBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    cleanCanvasBtn.innerHTML = "Clean 3D Plot"
-    cleanCanvasBtn.id = "clean-canvas-btn"
-    cleanCanvasBtn.addEventListener("click", cleanCanvas)
+    let cleanMCBtn = cf('button')
+    cleanMCBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
+    cleanMCBtn.innerHTML = "Del All MC"
+    cleanMCBtn.id = "clean-mc-btn"
+    cleanMCBtn.addEventListener("click", cleanCanvas)
 
-    boxButtonsAdd.appendChild(addMitralBtn)
-    boxButtonsAdd.appendChild(addTmitralBtn)
-    boxButtonsRemove.appendChild(removeMitralBtn)
-    boxButtonsRemove.appendChild(removeTmitralBtn)
+    let cleanTMCBtn = cf('button')
+    cleanTMCBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
+    cleanTMCBtn.innerHTML = "Del All T-MC"
+    cleanTMCBtn.id = "clean-tmc-btn"
+    cleanTMCBtn.addEventListener("click", cleanCanvas)
+
+    boxButtonsMC.appendChild(addMitralBtn)
+    boxButtonsMC.appendChild(removeMitralBtn)
+    boxButtonsMC.appendChild(cleanMCBtn)
+
+    
+    //boxButtonsMC.appendChild()/**/
+    boxButtonsTMC.appendChild(addTmitralBtn)
+    boxButtonsTMC.appendChild(removeTmitralBtn)
+    boxButtonsTMC.appendChild(cleanTMCBtn)
+    //boxButtonsTMC.appendChild(removeMitralBtn)
 
     glomListBox.appendChild(glomBox)
     mitrListBox.appendChild(mitrBox)
@@ -470,9 +490,9 @@ function createCellSelectionBox() {
     listGroupsBox.appendChild(tmitrListBox)
 
     ge("explorer-body").appendChild(listGroupsBox)
-    ge("explorer-body").appendChild(boxButtonsAdd)
-    ge("explorer-body").appendChild(boxButtonsRemove)
-    ge("explorer-body").appendChild(cleanCanvasBtn)
+    ge("explorer-body").appendChild(boxButtonsMC)
+    ge("explorer-body").appendChild(boxButtonsTMC)
+    
 }
 
 
