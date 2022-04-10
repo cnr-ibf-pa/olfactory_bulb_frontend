@@ -1,9 +1,11 @@
 import _ from 'lodash'
 import './style.css'
+//import './auth.js'
 import 'jquery'
 import 'bootstrap'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import { GUI } from 'dat.gui'
+import colorGradient from "javascript-color-gradient"
 
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
@@ -20,13 +22,14 @@ const loadImage = require('load-img');
 
 /* gids - info
 mitral: [0-634]
-mitral tufted: [635-1904]
+medial tufted: [635-1904]
 granule: [1905-390516]
 blanes: [390517-390898]
 */
+const glomeruliLimits = _.range(0, 126)
 const mcLimits = _.range(0, 634)
 const tmcLimits = _.range(635, 1904)
-const granuleLimits = _.range(1905, 390516)
+const granulesLimits = _.range(1905, 390516)
 const blanesLimits = _.range(390517, 390898)
 
 const numMitrPerGlom = 5
@@ -34,31 +37,55 @@ const numTMitrPerGlom = 10
 const numMitral = 635
 
 const scale_factor = 1
-const granularity = 5
-const cylinderResolution = 90
-const sphereResolution = 90
-const glom_base_radius = 30
+const granularity = 4
+
+const cylinderResolution = 20
+
+const glom_resolution = 60
+const glom_base_radius = 35
 const glom_selected_radius = 62
 
 const glom_base_color = new THREE.Color(0xe74c3c)
+const glom_inactive_color = new THREE.Color(0x8a8a8a)
+
 const glom_hovered_color = new THREE.Color(0x9a7d0a)
+const glom_hovered_inactive_color = new THREE.Color(0x3d1656)
+
 const glom_selected_color = new THREE.Color(0xffff00)
 
-const glom_base_geometry = new THREE.SphereGeometry(glom_base_radius, sphereResolution, sphereResolution);
-const glom_hovered_geometry = new THREE.SphereGeometry(glom_selected_radius, sphereResolution, sphereResolution);
-const glom_selected_geometry = new THREE.SphereGeometry(glom_base_radius, sphereResolution, sphereResolution);
+const glom_base_geometry = new THREE.SphereGeometry(glom_base_radius, glom_resolution, glom_resolution);
+const glom_hovered_geometry = new THREE.SphereGeometry(glom_selected_radius, glom_resolution, glom_resolution);
+const glom_selected_geometry = new THREE.SphereGeometry(glom_base_radius, glom_resolution, glom_resolution);
 
-const cameraPositions = [3840, 485, 1367]
-const cameraFov = 70
+const granule_radius = 6
+const granule_resolution = 6
+const granule_hovered_radius = 6
+const granule_selected_radius = 4
+
+const granule_base_color = new THREE.Color(0x12b9b5)
+const granule_hovered_color = new THREE.Color(0x85c4ee)
+const granule_selected_color = new THREE.Color(0x3b99d7)
+
+const granule_base_geometry = new THREE.SphereGeometry(granule_radius, granule_resolution, granule_resolution);
+const granule_hovered_geometry = new THREE.SphereGeometry(granule_hovered_radius, granule_resolution, granule_resolution);
+const granule_selected_geometry = new THREE.SphereGeometry(granule_selected_radius, granule_resolution, granule_resolution);
+
+const cameraPositions = [8855, -7873, 7045]
+const cameraFov = 20
+
+let currentGlomColor
+
+
 
 const listeners = {
     "glom": { "click": selectGlom, "mouseover": highlightElement, "mouseleave": restoreColor },
     //"mitr": { "click": , "mouseover": , "mouseleave": },
-    //"tmitr": { "click": , "mouseover": , "mouseleave": },
+    //"tuft": { "click": , "mouseover": , "mouseleave": },
 
 }
 // Build the page DOM
 window.onload = buildDOM();
+var actualSizes = get_canvas_dimensions()
 
 
 /*
@@ -69,8 +96,9 @@ const pointLight = new THREE.PointLight(0xffffff, 1)
 const pointLight2 = new THREE.PointLight(0xffffff, 1)
 const pointLight3 = new THREE.PointLight(0xffffff, 1)
 const pointLight4 = new THREE.PointLight(0xffffff, 1)
-var sizes = { width: window.innerWidth, height: window.innerHeight }
-const camera = new THREE.PerspectiveCamera(cameraFov, sizes.width / sizes.height, 50, 15000)
+var sizes = { width: window.innerWidth - actualSizes[0], height: window.innerHeight - actualSizes[1] }
+const camera = new THREE.PerspectiveCamera(cameraFov, sizes.width / sizes.height, 0.01, 6000000)
+camera.zoom = 1
 const canvas = document.querySelector('#v_canvas')
 const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
@@ -80,60 +108,99 @@ const renderer = new THREE.WebGLRenderer({
 var controls = new OrbitControls(camera, renderer.domElement);
 camera.position.set(cameraPositions[0], cameraPositions[1], cameraPositions[2])
 
+const numColors = 50
+
+const colorGradientArray  = colorGradient
+    .setGradient("#023f48", "#ccfdcc")
+    .setMidpoint(numColors)
+    .getArray();
+
+let threeColorArray = []
+for (let i = 1; i < numColors + 1; i++) {
+    threeColorArray.push(new THREE.Color(colorGradientArray[i]))
+}
+
+
 
 /*
  * SET GLOBAL VARIABLES 
  */
 
+// edit name
 var selected_glom = "glom--"
 var selected_mitr = "mitr--"
-var selected_tmitr = "mitr--"
-var plottedELements = []
+var selected_tuft = "mitr--"
 
 var plottedNet = {}
 
 
-var glom_list;
-
-var simulatedCellIds = []
+// data container
+let glom_list // list of glomeurali ids ("0" -> "126") in string format
+let allGlomCoord // dictionary with all glomeurli coordinates
+let simulatedCellIds = [] // 
+let simulatedGloms = []
+let simulatedConnections
+let allGranulePositions // dictionary of all granule cell positions
 
 window.addEventListener('resize', resize);
 
 createScene()
 resize()
 animate()
-initializeSceneContent()
-getSimulatedCellIds()
-//createGUI()
+getSimulationData()
 
-function initializeSceneContent() {
+
+// getSimulatedCellIds()
+createGUI()
+//plotGranuleCell()
+
+function getSimulationData() {
     axios.get('https://127.0.0.1:8000/ob/ob_dict')
-        .then(res => {
-            //data = res.data.glom_coord;
-            glom_list = plotGlomeruli(res.data.glom_coord)
-            let glom_ids = []
-            for (let i = 0; i < glom_list.length; i++) {
-                glom_ids.push(i.toString())
-            }
-            populateCellDropdown("glom", glom_ids)
-            populateCellDropdown("mitr", [])
-            populateCellDropdown("tmitr", [])
-
+        .then(glomDict => {
+            allGlomCoord = glomDict.data.glom_coord
+            axios.get('https://127.0.0.1:8000/ob/simulated_gloms')
+                .then(simGloms => {
+                    let simulatedGlomsNum = simGloms.data.sim_gloms
+                    for (let sg of simulatedGlomsNum) {
+                        simulatedGloms.push(sg.toString())
+                    }
+                    axios.get('https://127.0.0.1:8000/ob/simulated_cell_ids')
+                        .then(cellIds => {
+                            let simulatedCellIdsNum = cellIds["data"]["cell_ids"];
+                            for (let c of simulatedCellIdsNum) {
+                                simulatedCellIds.push(c.toString())
+                            }
+                            axios.get('https://127.0.0.1:8000/ob/connections')
+                                .then(connections => {
+                                    simulatedConnections = connections.data
+                                    axios.get('https://127.0.0.1:8000/ob/all_granules_pos')
+                                        .then(granules => {
+                                            allGranulePositions = granules.data
+                                            initializeSceneContent()
+                                        })
+                                })
+                        })
+                })
         })
-        .catch(err => {
-            console.log('Error: ', err.message);
-        });
 }
 
-function getSimulatedCellIds() {
 
-    axios.get('https://127.0.0.1:8000/ob/simulated_cell_ids')
-        .then(res => {
-            simulatedCellIds = res["data"]["cell_ids"];
-        })
-        .catch(err => {
-            console.log('Error: ', err.message);
-        });
+
+function get_canvas_dimensions() {
+    return [ge("params").clientWidth, ge("banner").clientHeight]
+}
+
+function initializeSceneContent() {
+    glom_list = plotGlomeruli(allGlomCoord, simulatedGloms)
+
+    let glom_ids = []
+    for (let i of glom_list) {
+        glom_ids.push(i.toString())
+    }
+
+    populateCellDropdown("glom", glom_ids)
+    populateCellDropdown("mitr", [])
+    populateCellDropdown("tuft", [])
 }
 
 /*
@@ -145,12 +212,12 @@ function getSimulatedCellIds() {
 function cleanCanvas() {
     for (let k in plottedNet) {
         if (k.slice(0, 3) != "glom") {
-            if ((this.id == "clean-mc-btn" && mcLimits.includes(parseInt(k))) || 
+            if ((this.id == "clean-mc-btn" && mcLimits.includes(parseInt(k))) ||
                 (this.id == "clean-tmc-btn" && tmcLimits.includes(parseInt(k)))) {
                 for (let el of plottedNet[k]) {
                     scene.remove(scene.getObjectByName(el))
                 }
-            delete plottedNet[k]
+                delete plottedNet[k]
             }
         }
     }
@@ -162,7 +229,7 @@ function plotCell() {
     if (this.id == "add-mitral-btn") {
         boxClass = "mitr-box-el"
     } else {
-        boxClass = "tmitr-box-el"
+        boxClass = "tuft-box-el"
     }
     let cell = gecn(boxClass + " list-group-item active")[0].innerText
     if (Object.keys(plottedNet).includes(cell))
@@ -176,13 +243,29 @@ function plotCell() {
         });
 }
 
+function plotGranuleCell(cell) {
+    for (let k of Object.keys(simulatedConnections[cell])) {
+        for (let ik of Object.keys(simulatedConnections[cell][k])) {
+            var geometry = granule_base_geometry; // (radius, widthSegments, heightSegments)
+            var material = new THREE.MeshStandardMaterial({
+                depthWrite: false, transparent: false,
+                opacity: 1.0, wireframe: false,
+                color: threeColorArray[Math.floor(simulatedConnections[cell][k][ik][0])]
+            })
+            var sphere = new THREE.Mesh(geometry, material)
+            sphere.position.set(allGranulePositions[ik][0], allGranulePositions[ik][1], allGranulePositions[ik][2]);
+            scene.add(sphere);
+            renderer.render(scene, camera);
+        }
+    }
+}
 
 function removeCell() {
     let boxClass
     if (this.id == "remove-mitral-btn") {
         boxClass = "mitr-box-el"
     } else {
-        boxClass = "tmitr-box-el"
+        boxClass = "tuft-box-el"
     }
     let cell = gecn(boxClass + " list-group-item active")[0].innerText
 
@@ -200,20 +283,20 @@ function getCellIds(glom_id) {
     let startTMitr = numMitral + idNum * numTMitrPerGlom
     let endTMitr = numMitral + idNum * numTMitrPerGlom + numTMitrPerGlom
     let mitr = _.range(startMitr, endMitr)
-    let tmitr = _.range(startTMitr, endTMitr)
+    let tuft = _.range(startTMitr, endTMitr)
     let mitrString = []
-    let tmitrString = []
+    let tuftString = []
     for (let s of mitr) {
         mitrString.push(s.toString())
     }
 
-    for (let s of tmitr) {
-        tmitrString.push(s.toString())
+    for (let s of tuft) {
+        tuftString.push(s.toString())
     }
 
     return {
         "mitr": mitrString,
-        "tmitr": tmitrString
+        "tuft": tuftString
     }
 }
 
@@ -254,11 +337,14 @@ function createGUI() {
 function highlightElement() {
     let name = this.id
 
-    if (name == selected_glom) {
-        return
-    } else if (name != "glom--") {
+    if (name != "glom--") {
         let element = scene.getObjectByName(name)
-        element.material.color = glom_hovered_color
+        let id = name.slice(5)
+        if (simulatedGloms.includes(id)) {
+            element.material.color = glom_hovered_color
+        } else {
+            element.material.color = glom_hovered_inactive_color
+        }
         element.geometry = glom_hovered_geometry
     }
 }
@@ -266,12 +352,19 @@ function highlightElement() {
 // reset color and geometry on mouse leave
 function restoreColor() {
     let name = this.id
+    let element = scene.getObjectByName(name)
+    element.geometry = glom_base_geometry
+
     if (name == selected_glom) {
         return
     } else if (name != "glom--") {
-        let element = scene.getObjectByName(name)
-        element.material.color = glom_base_color
-        element.geometry = glom_base_geometry
+        let id = name.slice(5)
+        if (simulatedGloms.includes(id)) {
+            element.material.color = glom_base_color
+        } else {
+            element.material.color = glom_inactive_color
+        }
+
     }
 }
 
@@ -282,41 +375,42 @@ function selectGlom() {
         return
     } else if (name == "glom--") {
         let old = scene.getObjectByName(selected_glom)
-        old.material.color = glom_base_color
         old.geometry = glom_base_geometry
+        if (simulatedGloms.includes(selected_glom.slice(5))) {
+            old.material.color = glom_base_color
+        } else {
+            old.material.color = glom_inactive_color
+        }
         selected_glom = "glom--"
         populateCellDropdown("mitr", [])
-        populateCellDropdown("tmitr", [])
+        populateCellDropdown("tuft", [])
     } else {
+        let element = scene.getObjectByName(name)
+
         // reset previously selected cell
         if (selected_glom != "glom--") {
             let old = scene.getObjectByName(selected_glom)
-            old.material.color = glom_base_color
+            if (simulatedGloms.includes(selected_glom.slice(5))) {
+                old.material.color = glom_base_color
+            } else {
+                old.material.color = glom_inactive_color
+            }
             old.geometry = glom_base_geometry
+
         }
         selected_glom = name
-        let element = scene.getObjectByName(name)
-        element.material.color = glom_selected_color
-        element.geometry = glom_selected_geometry
+        element.geometry = glom_base_geometry
 
-        // to be replaced with querying HPC
-        let cellDict = getCellIds(name.replace("glom_", ""))
-        let mitral = cellDict["mitr"].filter(function (x) {
-            // checking second array contains the element "x"
-            if (simulatedCellIds.indexOf(x) != -1)
-                return true;
-            else
-                return false;
-        });
-        let tmitral = cellDict["tmitr"].filter(function (x) {
-            // checking second array contains the element "x"
-            if (simulatedCellIds.indexOf(x) != -1)
-                return true;
-            else
-                return false;
-        });
-        populateCellDropdown("mitr", mitral)
-        populateCellDropdown("tmitr", tmitral)
+        if (!simulatedGloms.includes(name.slice(5))) {
+            var mitral_cells = []
+            var tufted_cells = []
+        } else {
+            let cellDict = getCellIds(name.replace("glom_", ""))
+            var mitral_cells = cellDict["mitr"]
+            var tufted_cells = cellDict["tuft"]
+        }
+        populateCellDropdown("mitr", mitral_cells)
+        populateCellDropdown("tuft", tufted_cells)
     }
 }
 
@@ -330,7 +424,7 @@ function animate() {
 
 function populateCellDropdown(elType, elementList) {
 
-    // elType is: "glom", "mitr", "tmitr"
+    // elType is: "glom", "mitr", "tuft"
 
     // create box
     let elId = elType + "-box-names"
@@ -369,6 +463,9 @@ function populateCellDropdown(elType, elementList) {
         cellBox.appendChild(el)
 
         if (elType == "glom") {
+            if (!simulatedGloms.includes(i)) {
+                el.classList.add("no-click");
+            }
             el.addEventListener("click", selectGlom)
             el.addEventListener("mouseover", highlightElement)
             el.addEventListener("mouseleave", restoreColor)
@@ -403,15 +500,15 @@ function createCellSelectionBox() {
     mitrBoxTitle.classList.add('group-title')
     mitrBox.appendChild(mitrBoxTitle)
 
-    // Tuft Mitral Cells box
-    let tmitrBox = cf('div')
-    tmitrBox.id = "tmitr-box"
-    tmitrBox.classList.add("tmitr-box")
+    // Tuft Cells box
+    let tuftBox = cf('div')
+    tuftBox.id = "tuft-box"
+    tuftBox.classList.add("tuft-box")
 
-    let tmitrBoxTitle = cf('h5')
-    tmitrBoxTitle.innerHTML = "T-Mitral Cells"
-    tmitrBoxTitle.classList.add('group-title')
-    tmitrBox.appendChild(tmitrBoxTitle)
+    let tuftBoxTitle = cf('h5')
+    tuftBoxTitle.innerHTML = "Tufted Cells"
+    tuftBoxTitle.classList.add('group-title')
+    tuftBox.appendChild(tuftBoxTitle)
 
     //
     let listGroupsBox = cf('div')
@@ -423,8 +520,8 @@ function createCellSelectionBox() {
     let mitrListBox = cf('div')
     mitrListBox.classList.add('col')
 
-    let tmitrListBox = cf('div')
-    tmitrListBox.classList.add('col')
+    let tuftListBox = cf('div')
+    tuftListBox.classList.add('col')
 
     let boxButtonsMC = cf('div')
     boxButtonsMC.classList.add('row', 'cell-box-btn')
@@ -434,39 +531,39 @@ function createCellSelectionBox() {
 
     let addMitralBtn = cf('button')
     addMitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    addMitralBtn.innerHTML = "Add MC"
+    addMitralBtn.innerHTML = "Add Mitral Cell"
     addMitralBtn.id = "add-mitral-btn"
     addMitralBtn.addEventListener("click", plotCell)
 
-    let addTmitralBtn = cf('button')
-    addTmitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    addTmitralBtn.innerHTML = "Add T-MC"
-    addTmitralBtn.id = "add-tmitral-btn"
-    addTmitralBtn.addEventListener("click", plotCell)
+    let addTuftedBtn = cf('button')
+    addTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
+    addTuftedBtn.innerHTML = "Add Tufted Cell"
+    addTuftedBtn.id = "add-tufted-btn"
+    addTuftedBtn.addEventListener("click", plotCell)
 
 
     let removeMitralBtn = cf('button')
     removeMitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    removeMitralBtn.innerHTML = "Del MC"
+    removeMitralBtn.innerHTML = "Del Mitral Cell"
     removeMitralBtn.id = "remove-mitral-btn"
     removeMitralBtn.addEventListener("click", removeCell)
 
 
-    let removeTmitralBtn = cf('button')
-    removeTmitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    removeTmitralBtn.innerHTML = "Del T-MC"
-    removeTmitralBtn.id = "remove-tmitral-btn"
-    removeTmitralBtn.addEventListener("click", removeCell)
+    let removeTuftedBtn = cf('button')
+    removeTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
+    removeTuftedBtn.innerHTML = "Del Tufted Cell"
+    removeTuftedBtn.id = "remove-tufted-btn"
+    removeTuftedBtn.addEventListener("click", removeCell)
 
     let cleanMCBtn = cf('button')
     cleanMCBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    cleanMCBtn.innerHTML = "Del All MC"
+    cleanMCBtn.innerHTML = "Del All Mitral Cells"
     cleanMCBtn.id = "clean-mc-btn"
     cleanMCBtn.addEventListener("click", cleanCanvas)
 
     let cleanTMCBtn = cf('button')
     cleanTMCBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    cleanTMCBtn.innerHTML = "Del All T-MC"
+    cleanTMCBtn.innerHTML = "Del All Tufted Cells"
     cleanTMCBtn.id = "clean-tmc-btn"
     cleanTMCBtn.addEventListener("click", cleanCanvas)
 
@@ -474,25 +571,25 @@ function createCellSelectionBox() {
     boxButtonsMC.appendChild(removeMitralBtn)
     boxButtonsMC.appendChild(cleanMCBtn)
 
-    
+
     //boxButtonsMC.appendChild()/**/
-    boxButtonsTMC.appendChild(addTmitralBtn)
-    boxButtonsTMC.appendChild(removeTmitralBtn)
+    boxButtonsTMC.appendChild(addTuftedBtn)
+    boxButtonsTMC.appendChild(removeTuftedBtn)
     boxButtonsTMC.appendChild(cleanTMCBtn)
     //boxButtonsTMC.appendChild(removeMitralBtn)
 
     glomListBox.appendChild(glomBox)
     mitrListBox.appendChild(mitrBox)
-    tmitrListBox.appendChild(tmitrBox)
+    tuftListBox.appendChild(tuftBox)
 
     listGroupsBox.appendChild(glomListBox)
     listGroupsBox.appendChild(mitrListBox)
-    listGroupsBox.appendChild(tmitrListBox)
+    listGroupsBox.appendChild(tuftListBox)
 
     ge("explorer-body").appendChild(listGroupsBox)
     ge("explorer-body").appendChild(boxButtonsMC)
     ge("explorer-body").appendChild(boxButtonsTMC)
-    
+
 }
 
 
@@ -594,8 +691,8 @@ function resize() {
     var win_h = window.innerHeight;
     var win_w = window.innerWidth;
 
-    let out_width = document.getElementById("params").clientWidth
-    let out_height = document.getElementById("banner").clientHeight
+    let out_width = ge("params").clientWidth
+    let out_height = ge("banner").clientHeight
 
     sizes.height = win_h - out_height;
     sizes.width = win_w - out_width;
@@ -719,9 +816,9 @@ function createSticks(vertices, type, cell) {
 
         const material = new THREE.MeshStandardMaterial({ depthWrite: false, color: type_colors[type] });
         const mesh = new THREE.Mesh(cylinder, material);
-        mesh.name = mesh.uuid
+        mesh.name = type + mesh.uuid
 
-        plottedNet[cell].push(mesh.uuid)
+        plottedNet[cell].push(mesh.name)
 
 
         allMeshes.push(mesh)
@@ -733,19 +830,30 @@ function createSticks(vertices, type, cell) {
 }
 
 // plot glomeruli
-function plotGlomeruli(data) {
+function plotGlomeruli(data, simGloms) {
     var glom_list = []
-    for (var i = 0; i < data.length; i++) {
+
+    for (let sg of simGloms) {
+        glom_list.push(sg)
+    }
+
+    for (let i of glomeruliLimits) {
+        if (simGloms.includes(i.toString())) {
+            currentGlomColor = glom_base_color
+        } else {
+            currentGlomColor = glom_inactive_color
+            glom_list.push(i.toString())
+        }
         var geometry = glom_base_geometry; // (radius, widthSegments, heightSegments)
-        var material = new THREE.MeshStandardMaterial({ depthWrite: false, transparent: false, opacity: 1.0, wireframe: false, color: glom_base_color })
+        var material = new THREE.MeshStandardMaterial({ depthWrite: false, transparent: false, opacity: 1.0, wireframe: false, color: currentGlomColor })
         var sphere = new THREE.Mesh(geometry, material)
         sphere.name = "glom_" + i.toString();
-        glom_list.push(i)
         sphere.position.set(data[i][0], data[i][1], data[i][2]);
         scene.add(sphere);
         plottedNet[sphere.name] = [sphere.uuid]
     }
     renderer.render(scene, camera);
+
     return glom_list
 }
 
@@ -765,5 +873,8 @@ function addCell(data, cell) {
             scene.add(n)
         }
     }
+    plotGranuleCell(cell)
+
+
     renderer.render(scene, camera);
 }

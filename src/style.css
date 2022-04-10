@@ -18,9 +18,9 @@ body {
     border-right-width: 1px;
 }
 
-#params * {
-    font-size: 12px !important;
-}
+    #params * {
+        font-size: 12px !important;
+    }
 
 #page {
     width: 100%;
@@ -45,9 +45,6 @@ body {
     color: white;
 }
 
-
-
-
 .list-group {
     max-height: 230px;
     margin-bottom: 10px;
@@ -60,14 +57,20 @@ body {
     margin: 0px !important;
     padding: 0px !important;
     font-size: 12px !important;
-    color: lightgrey !important;
-    background-color: dimgrey !important;
+    color: darkblue !important;
+    background-color: lightgrey !important;
 }
 
     .list-group-item.active {
         background-color: whitesmoke !important;
         color: darkslategrey !important;
     }
+
+    .list-group-item.no-click {
+        background-color: dimgrey !important;
+        color: whitesmoke !important;
+    }
+
 
 .cell-box-btn {
     margin-top: 8px !important;
@@ -100,6 +103,6 @@ body {
     font-family: 'Open Sans';
 }
 
-.banner-element.title {
-    font-size: 22px;
-}
+    .banner-element.title {
+        font-size: 22px;
+    }
