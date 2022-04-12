@@ -110,7 +110,7 @@ camera.position.set(cameraPositions[0], cameraPositions[1], cameraPositions[2])
 
 const numColors = 50
 
-const colorGradientArray  = colorGradient
+const colorGradientArray = colorGradient
     .setGradient("#023f48", "#ccfdcc")
     .setMidpoint(numColors)
     .getArray();
@@ -141,6 +141,7 @@ let simulatedCellIds = [] //
 let simulatedGloms = []
 let simulatedConnections
 let allGranulePositions // dictionary of all granule cell positions
+let allMTCellsPositions
 
 window.addEventListener('resize', resize);
 
@@ -176,7 +177,11 @@ function getSimulationData() {
                                     axios.get('https://127.0.0.1:8000/ob/all_granules_pos')
                                         .then(granules => {
                                             allGranulePositions = granules.data
-                                            initializeSceneContent()
+                                            axios.get('https://127.0.0.1:8000/ob/all_mt_pos')
+                                                .then(allMTCellsPos => {
+                                                    allMTCellsPositions = allMTCellsPos
+                                                    initializeSceneContent()
+                                                })
                                         })
                                 })
                         })
@@ -234,13 +239,7 @@ function plotCell() {
     let cell = gecn(boxClass + " list-group-item active")[0].innerText
     if (Object.keys(plottedNet).includes(cell))
         return
-    axios.get('https://127.0.0.1:8000/ob/example_mitral/' + cell)
-        .then(res => {
-            addCell(res, cell);
-        })
-        .catch(err => {
-            console.log('Error: ', err.message);
-        });
+    addCell(allMTCellsPositions["data"][cell], cell);
 }
 
 function plotGranuleCell(cell) {
@@ -861,10 +860,10 @@ function plotGlomeruli(data, simGloms) {
 // 
 function addCell(data, cell) {
     let allCellMeshes = []
-    let keys = Object.keys(data["data"]["secs"])
+    let keys = Object.keys(data["secs"])
 
     for (let k of keys) {
-        let points_array = data["data"]["secs"][k]["geom"]["pt3d"]
+        let points_array = data["secs"][k]["geom"]["pt3d"]
         allCellMeshes.push(createSticks(points_array, k.slice(0, 4), cell))
     }
 
@@ -874,7 +873,5 @@ function addCell(data, cell) {
         }
     }
     plotGranuleCell(cell)
-
-
     renderer.render(scene, camera);
 }

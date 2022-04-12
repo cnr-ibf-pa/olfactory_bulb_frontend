@@ -27,6 +27,7 @@
     "css-loader": "^6.7.1",
     "dat.gui": "^0.7.9",
     "html-webpack-plugin": "^5.5.0",
+    "javascript-color-gradient": "^2.3.4",
     "jquery": "^3.6.0",
     "jsdom": "^19.0.0",
     "load-img": "^1.0.0",
