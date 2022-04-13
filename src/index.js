@@ -37,7 +37,7 @@ const numTMitrPerGlom = 10
 const numMitral = 635
 
 const scale_factor = 1
-const granularity = 4
+const granularity = 2
 
 const cylinderResolution = 20
 
@@ -75,8 +75,6 @@ const cameraFov = 20
 
 let currentGlomColor
 
-
-
 const listeners = {
     "glom": { "click": selectGlom, "mouseover": highlightElement, "mouseleave": restoreColor },
     //"mitr": { "click": , "mouseover": , "mouseleave": },
@@ -108,18 +106,19 @@ const renderer = new THREE.WebGLRenderer({
 var controls = new OrbitControls(camera, renderer.domElement);
 camera.position.set(cameraPositions[0], cameraPositions[1], cameraPositions[2])
 
-const numColors = 50
+const numColors = 200
+const maxColorIdx = 100
 
 const colorGradientArray = colorGradient
     .setGradient("#023f48", "#ccfdcc")
     .setMidpoint(numColors)
     .getArray();
 
-let threeColorArray = []
-for (let i = 1; i < numColors + 1; i++) {
-    threeColorArray.push(new THREE.Color(colorGradientArray[i]))
+let threeColorArray = {}
+for (let i = 1; i < maxColorIdx + 1; i += 0.5) {
+    let str = (Math.floor(i * 1000) / 1000).toString()
+    threeColorArray[str] = new THREE.Color(colorGradientArray[i * 2 - 1])
 }
-
 
 
 /*
@@ -153,7 +152,7 @@ getSimulationData()
 
 // getSimulatedCellIds()
 createGUI()
-//plotGranuleCell()
+
 
 function getSimulationData() {
     axios.get('https://127.0.0.1:8000/ob/ob_dict')
@@ -229,6 +228,11 @@ function cleanCanvas() {
 }
 
 
+function showWeights() {
+
+}
+
+
 function plotCell() {
     let boxClass
     if (this.id == "add-mitral-btn") {
@@ -248,17 +252,20 @@ function plotGranuleCell(cell) {
             var geometry = granule_base_geometry; // (radius, widthSegments, heightSegments)
             var material = new THREE.MeshStandardMaterial({
                 depthWrite: false, transparent: false,
-                opacity: 1.0, wireframe: false,
-                color: threeColorArray[Math.floor(simulatedConnections[cell][k][ik][0])]
+                opacity: 1.0, wireframe: false,                
+                color: threeColorArray[simulatedConnections[cell][k][ik][0].toString()]
             })
             var sphere = new THREE.Mesh(geometry, material)
             sphere.position.set(allGranulePositions[ik][0], allGranulePositions[ik][1], allGranulePositions[ik][2]);
-            scene.add(sphere);
-            renderer.render(scene, camera);
+            sphere.name = ik
+            plottedNet[cell].push(sphere.name)
+            scene.add(sphere);            
         }
     }
+    renderer.render(scene, camera);
 }
 
+// remove cell from canvas
 function removeCell() {
     let boxClass
     if (this.id == "remove-mitral-btn") {
@@ -522,72 +529,134 @@ function createCellSelectionBox() {
     let tuftListBox = cf('div')
     tuftListBox.classList.add('col')
 
-    let boxButtonsMC = cf('div')
-    boxButtonsMC.classList.add('row', 'cell-box-btn')
+    let boxButtons = cf('div')
+    boxButtons.classList.add('cell-box-btn')
 
-    let boxButtonsTMC = cf('div')
-    boxButtonsTMC.classList.add('row', 'cell-box-btn')
-
+        // Add Mitral Button
     let addMitralBtn = cf('button')
-    addMitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    addMitralBtn.innerHTML = "Add Mitral Cell"
+    addMitralBtn.classList.add("btn", "btn-secondary", "cell-btn")
+    addMitralBtn.innerHTML = "Add Cell"
     addMitralBtn.id = "add-mitral-btn"
     addMitralBtn.addEventListener("click", plotCell)
 
-    let addTuftedBtn = cf('button')
-    addTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    addTuftedBtn.innerHTML = "Add Tufted Cell"
-    addTuftedBtn.id = "add-tufted-btn"
-    addTuftedBtn.addEventListener("click", plotCell)
-
-
+    // Remove Mitral Button
     let removeMitralBtn = cf('button')
-    removeMitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    removeMitralBtn.innerHTML = "Del Mitral Cell"
+    removeMitralBtn.classList.add("btn", "btn-secondary", "cell-btn")
+    removeMitralBtn.innerHTML = "Remove Cell"
     removeMitralBtn.id = "remove-mitral-btn"
     removeMitralBtn.addEventListener("click", removeCell)
 
+    // Inh Mitral Button
+    let inhMitralBtn = cf('button')
+    inhMitralBtn.classList.add("btn", "btn-secondary", "cell-btn")
+    inhMitralBtn.innerHTML = "Inhib. weights"
+    inhMitralBtn.id = "inh-mitral-btn"
+    inhMitralBtn.addEventListener("click", showWeights)
 
+    // Exc Mitral Button
+    let excMitralBtn = cf('button')
+    excMitralBtn.classList.add("btn", "btn-secondary", "cell-btn")
+    excMitralBtn.innerHTML = "Excit. weights"
+    excMitralBtn.id = "exc-mitral-btn"
+    excMitralBtn.addEventListener("click", showWeights)
+
+    // Clear Weights Mitral Button
+    let clrMitralBtn = cf('button')
+    clrMitralBtn.classList.add("btn", "btn-secondary", "cell-btn")
+    clrMitralBtn.innerHTML = "Clear weights"
+    clrMitralBtn.id = "clr-mitral-btn"
+    clrMitralBtn.addEventListener("click", showWeights)
+
+
+
+    // Add Tufted Button
+    let addTuftedBtn = cf('button')
+    addTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
+    addTuftedBtn.innerHTML = "Add Cell"
+    addTuftedBtn.id = "add-tufted-btn"
+    addTuftedBtn.addEventListener("click", plotCell)
+    
+
+    // Remove Tufted Button
     let removeTuftedBtn = cf('button')
-    removeTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    removeTuftedBtn.innerHTML = "Del Tufted Cell"
+    removeTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn")
+    removeTuftedBtn.innerHTML = "Remove Cell"
     removeTuftedBtn.id = "remove-tufted-btn"
     removeTuftedBtn.addEventListener("click", removeCell)
 
+
+    // Inh Tufted Button
+    let inhTuftedBtn = cf('button')
+    inhTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn")
+    inhTuftedBtn.innerHTML = "Inhib. weights"
+    inhTuftedBtn.id = "inh-tufted-btn"
+    inhTuftedBtn.addEventListener("click", showWeights)
+
+    // Exc Tufted Button
+    let excTuftedBtn = cf('button')
+    excTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn")
+    excTuftedBtn.innerHTML = "Excit. weights"
+    excTuftedBtn.id = "exc-tufted-btn"
+    excTuftedBtn.addEventListener("click", showWeights)
+
+    // Clear Weights Tufted Button
+    let clrTuftedBtn = cf('button')
+    clrTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn")
+    clrTuftedBtn.innerHTML = "Clear weights"
+    clrTuftedBtn.id = "clr-mitral-btn"
+    clrTuftedBtn.addEventListener("click", showWeights)
+
+
     let cleanMCBtn = cf('button')
     cleanMCBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    cleanMCBtn.innerHTML = "Del All Mitral Cells"
+    cleanMCBtn.innerHTML = "Remove All Mitral Cells"
     cleanMCBtn.id = "clean-mc-btn"
     cleanMCBtn.addEventListener("click", cleanCanvas)
 
     let cleanTMCBtn = cf('button')
     cleanTMCBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    cleanTMCBtn.innerHTML = "Del All Tufted Cells"
+    cleanTMCBtn.innerHTML = "Remove All Tufted Cells"
     cleanTMCBtn.id = "clean-tmc-btn"
     cleanTMCBtn.addEventListener("click", cleanCanvas)
 
-    boxButtonsMC.appendChild(addMitralBtn)
-    boxButtonsMC.appendChild(removeMitralBtn)
-    boxButtonsMC.appendChild(cleanMCBtn)
+    let cleanGrCBtn = cf('button')
+    cleanGrCBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
+    cleanGrCBtn.innerHTML = "Remove All Granule Cells"
+    cleanGrCBtn.id = "clean-grc-btn"
+    cleanGrCBtn.addEventListener("click", cleanCanvas)
 
-
-    //boxButtonsMC.appendChild()/**/
-    boxButtonsTMC.appendChild(addTuftedBtn)
-    boxButtonsTMC.appendChild(removeTuftedBtn)
-    boxButtonsTMC.appendChild(cleanTMCBtn)
-    //boxButtonsTMC.appendChild(removeMitralBtn)
+    boxButtons.appendChild(cleanMCBtn)
+    boxButtons.appendChild(cleanTMCBtn)
+    //boxButtons.appendChild(cleanGrCBtn)
+    
 
     glomListBox.appendChild(glomBox)
+
+
     mitrListBox.appendChild(mitrBox)
+    mitrListBox.appendChild(addMitralBtn)
+    mitrListBox.appendChild(removeMitralBtn)
+    mitrListBox.appendChild(inhMitralBtn)
+    mitrListBox.appendChild(excMitralBtn)
+    mitrListBox.appendChild(clrMitralBtn)
+
+        
+    
+
+    
     tuftListBox.appendChild(tuftBox)
+    tuftListBox.appendChild(addTuftedBtn)
+    tuftListBox.appendChild(removeTuftedBtn)
+    tuftListBox.appendChild(inhTuftedBtn)
+    tuftListBox.appendChild(excTuftedBtn)
+    tuftListBox.appendChild(clrTuftedBtn)
 
     listGroupsBox.appendChild(glomListBox)
     listGroupsBox.appendChild(mitrListBox)
     listGroupsBox.appendChild(tuftListBox)
 
     ge("explorer-body").appendChild(listGroupsBox)
-    ge("explorer-body").appendChild(boxButtonsMC)
-    ge("explorer-body").appendChild(boxButtonsTMC)
+    ge("explorer-body").appendChild(boxButtons)
 
 }
 
@@ -754,26 +823,13 @@ function createAccordionItem(header_id, collapse_id, button_content,
 }
 
 
-// create element function
-function cf(type) {
-    return document.createElement(type)
-}
 
-// select element function
-function ge(id) {
-    return document.getElementById(id)
-}
-
-// get element by class name
-function gecn(classes) {
-    return document.getElementsByClassName(classes)
-}
 
 /*  
  * PLOTTING FUNCTIONS  
  */
 
-function createSticks(vertices, type, cell) {
+function createSticks(vertices, type, cell, full_type) {
     let allMeshes = []
     const endPoints = []
     const len = vertices.length
@@ -815,16 +871,10 @@ function createSticks(vertices, type, cell) {
 
         const material = new THREE.MeshStandardMaterial({ depthWrite: false, color: type_colors[type] });
         const mesh = new THREE.Mesh(cylinder, material);
-        mesh.name = type + mesh.uuid
-
+        mesh.name = full_type + "___" + j.toString()
         plottedNet[cell].push(mesh.name)
-
-
         allMeshes.push(mesh)
-
-
     }
-
     return allMeshes
 }
 
@@ -864,7 +914,7 @@ function addCell(data, cell) {
 
     for (let k of keys) {
         let points_array = data["secs"][k]["geom"]["pt3d"]
-        allCellMeshes.push(createSticks(points_array, k.slice(0, 4), cell))
+        allCellMeshes.push(createSticks(points_array, k.slice(0, 4), cell, k))
     }
 
     for (let m of allCellMeshes) {
@@ -874,4 +924,21 @@ function addCell(data, cell) {
     }
     plotGranuleCell(cell)
     renderer.render(scene, camera);
+}
+
+
+
+// create element function
+function cf(type) {
+    return document.createElement(type)
+}
+
+// select element function
+function ge(id) {
+    return document.getElementById(id)
+}
+
+// get element by class name
+function gecn(classes) {
+    return document.getElementsByClassName(classes)
 }
