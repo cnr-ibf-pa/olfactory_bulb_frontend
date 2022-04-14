@@ -40,9 +40,12 @@ body {
 
 .accordion-button, .accordion-body {
     padding: 2px !important;
-    font-size: 13px !important;
     background-color: black;
     color: white;
+}
+
+.accordion-button {
+    font-size: 13px !important;
 }
 
 .list-group {
@@ -125,10 +128,10 @@ body {
 }
 
 .mitr-box-el {
-    height: 42px;    
+    height: 42px;
 }
 
-.tuft-box-el{
+.tuft-box-el {
     height: 21px;
 }
 
@@ -138,4 +141,45 @@ body {
 
 .mitr-box-el#mitr-- {
     height: 21px !important;
+}
+
+.input-group.mb-3 {
+    margin: 1px !important;
+}
+
+.odor-btn {
+    width: 100% !important;
+}
+
+.odor-col {
+    padding: 0px !important;
+    margin: 0px !important;
+}
+
+.glom-col {
+    padding: 0px !important;
+    margin: 0px !important;
+}
+
+.glom-btn {
+   margin: 0px !important;
+   width: 100% !important;
+}
+
+.odor-container {
+    padding: 14px !important;
+}
+
+.list-title {
+    text-align: center;
+}
+
+#sim-canvas{
+    width: 100% !important;
+    height: 500px !important;
+}
+
+#sim-canvas-div {
+    width: 100% !important;
+    height: 250px !important;
 }
