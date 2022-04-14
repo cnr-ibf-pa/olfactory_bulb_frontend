@@ -14,12 +14,19 @@ module.exports = {
         new HtmlWebpackPlugin({
             title: 'Olfactory Bulb',
         }),
+        new HtmlWebpackPlugin({
+            template: './src/callback.html',
+            inject: true,
+            chunks: ['callback'],
+            filename: 'callback.html'
+        })
     ],
     output: {
         filename: '[name].bundle.js',
         path: path.resolve(__dirname, 'dist'),
         clean: true,
     },
+
     module: {
         rules: [
             {

@@ -1,6 +1,5 @@
 import _ from 'lodash'
 import './style.css'
-//import './auth.js'
 import 'jquery'
 import 'bootstrap'
 import 'bootstrap/dist/css/bootstrap.min.css'
@@ -76,6 +75,21 @@ const cameraFov = 20
 let currentGlomColor
 
 
+
+// ========================== AUTHENTICATION ======================================00 
+import * as m_oidc from './handlers/auth.js';
+
+var user_json = window.sessionStorage.getItem('user'); // check if user is already logged in
+
+if (!user_json) {
+    m_oidc.init(); // run login
+} else {
+    var user = JSON.parse(user_json); // parse user json
+}
+console.log(user.id_token); // fetch token
+console.log(user.profile.preferred_username); // fetch username
+
+// ==================================================================================
 
 const listeners = {
     "glom": { "click": selectGlom, "mouseover": highlightElement, "mouseleave": restoreColor },
