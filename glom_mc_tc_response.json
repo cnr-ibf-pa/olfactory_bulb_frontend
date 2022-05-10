@@ -1,0 +1,235 @@
+{
+	"MC": {
+		"001": {
+			"compartments": {
+				"soma": {
+					"soma_0": {
+						"point_0": {
+							"position": [ "x", "y", "z", "d" ]
+						},
+						"point_1": {
+							"position": []
+						}
+					}
+				},
+				"dendrites": {
+					"dend_0": {
+						"point_0": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						},
+						"point_1": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						}
+					},
+					"dend_1": {
+						"point_0": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						},
+						"point_1": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						}
+					}
+				},
+				"apical": {
+					"apic_0": {
+						"point_0": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						},
+						"point_1": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						}
+					},
+					"apic_1": {
+						"point_0": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						},
+						"point_1": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						}
+					}
+				},
+				"tufts": {
+					"tuft_0": {
+						"point_0": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						},
+						"point_1": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						}
+					},
+					"tuft_1": {
+						"point_0": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						},
+						"point_1": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						}
+					}
+				}
+			}
+		},
+		"002": {
+			"compartments": {
+				"soma": {
+					"soma_0": {
+						"point_0": {
+							"position": [ "x", "y", "z", "d" ]
+						},
+						"point_1": {
+							"position": []
+						}
+					}
+				},
+				"dendrites": {
+					"dend_0": {
+						"point_0": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						},
+						"point_1": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						}
+					},
+					"dend_1": {
+						"point_0": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						},
+						"point_1": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						}
+					}
+				},
+				"apical": {
+					"apic_0": {
+						"point_0": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						},
+						"point_1": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						}
+					},
+					"apic_1": {
+						"point_0": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						},
+						"point_1": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						}
+					}
+				},
+				"tufts": {
+					"tuft_0": {
+						"point_0": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						},
+						"point_1": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						}
+					},
+					"tuft_1": {
+						"point_0": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						},
+						"point_1": {
+							"position": [],
+							"gr": {
+								"gr_23123": [ "direct_strength", "inverse_strength" ],
+								"gr_36324": [ "direct_strength", "inverse_strength" ]
+							}
+						}
+					}
+				}
+			}
+		}
+	}

@@ -244,7 +244,7 @@ function showGlomStrength() {
             odEl.classList.remove("sel-for-sim")
         }
     }
-    markForSim(this.id)
+    markForSim(this.id, "")
 
     let odor = this.id
     for (let idx of glomeruliLimits) {
