@@ -11,10 +11,22 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
 import EBRAINS_logo from "../static/img/ebrains_logo.svg"
+import colorMap from "../static/img/colorMap.svg"
+
 import { Scene } from 'three'
 
 const axios = require('axios');
 const loadImage = require('load-img');
+
+let colormap = require('colormap')
+let colorMapGlShades = 10
+
+let colorsGlom = colormap({
+    colormap: 'hot',
+    nshades: colorMapGlShades,
+    format: 'hex',
+    alpha: 1
+})
 
 /*
  * SET BULB'S ELEMENT GRAPHICS PROPERTIES
@@ -26,11 +38,11 @@ medial tufted: [635-1904]
 granule: [1905-390516]
 blanes: [390517-390898]
 */
-const glomeruliLimits = _.range(0, 126)
-const mcLimits = _.range(0, 634)
-const tmcLimits = _.range(635, 1904)
-const granulesLimits = _.range(1905, 390516)
-const blanesLimits = _.range(390517, 390898)
+const glomeruliLimits = _.range(0, 127)
+const mcLimits = _.range(0, 635)
+const tmcLimits = _.range(636, 1905)
+const granulesLimits = _.range(1906, 390517)
+const blanesLimits = _.range(390518, 390899)
 
 const numMitrPerGlom = 5
 const numTMitrPerGlom = 10
@@ -51,11 +63,8 @@ const glom_inactive_color = new THREE.Color(0x8a8a8a)
 const glom_hovered_color = new THREE.Color(0x9a7d0a)
 const glom_hovered_inactive_color = new THREE.Color(0x3d1656)
 
-const glom_selected_color = new THREE.Color(0xffff00)
-
 const glom_base_geometry = new THREE.SphereGeometry(glom_base_radius, glom_resolution, glom_resolution);
 const glom_hovered_geometry = new THREE.SphereGeometry(glom_selected_radius, glom_resolution, glom_resolution);
-const glom_selected_geometry = new THREE.SphereGeometry(glom_base_radius, glom_resolution, glom_resolution);
 
 const granule_radius = 6
 const granule_resolution = 6
@@ -107,13 +116,9 @@ const renderer = new THREE.WebGLRenderer({
 var controls = new OrbitControls(camera, renderer.domElement);
 camera.position.set(cameraPositions[0], cameraPositions[1], cameraPositions[2])
 
-const numColors = 200
-const maxColorIdx = 100
-
-let threeColorArrayGC = setColorArray("#023f48", "#ccfdcc")
-let threeColorArrayCell = setColorArray("#800000", "#ffffff")
-
-
+let threeColorArrayGC = setColorThreeArray("#023f48", "#ccfdcc", 200, 100)
+let threeColorArrayCell = setColorThreeArray("#800000", "#ffffff", 200, 100)
+let threeColorArrayGloms = setColorArray("#800000", "#ffff66", 127)
 
 /*
  * SET GLOBAL VARIABLES 
@@ -125,7 +130,6 @@ var selected_mitr = "mitr--"
 var selected_tuft = "mitr--"
 
 var plottedNet = {}
-
 
 // data container
 let glom_list // list of glomeurali ids ("0" -> "126") in string format
@@ -173,7 +177,6 @@ function getSimulationData() {
                                             axios.get('https://127.0.0.1:8000/ob/odors')
                                                 .then(odors => {
                                                     odorValues = odors.data
-                                                    console.log(odorValues)
                                                     axios.get('https://127.0.0.1:8000/ob/all_mt_pos')
                                                         .then(allMTCellsPos => {
                                                             allMTCellsPositions = allMTCellsPos
@@ -189,11 +192,9 @@ function getSimulationData() {
 }
 
 // Set color array for plotting elements with gradient colors
-function setColorArray(color1, color2) {
-    let colorGradientArray = colorGradient
-        .setGradient(color1, color2)
-        .setMidpoint(numColors)
-        .getArray();
+
+function setColorThreeArray(color1, color2, numColors, maxColorIdx) {
+    let colorGradientArray = setColorArray(color1, color2, numColors)
 
     let threeColorArray = {}
     for (let i = 1; i < maxColorIdx + 1; i += 0.5) {
@@ -201,6 +202,14 @@ function setColorArray(color1, color2) {
         threeColorArray[str] = new THREE.Color(colorGradientArray[i * 2 - 1])
     }
     return threeColorArray
+}
+
+function setColorArray(color1, color2, numColors) {
+     let colorGradientArray = colorGradient
+        .setGradient(color1, color2)
+        .setMidpoint(numColors)
+        .getArray()
+    return colorGradientArray
 }
 
 // Get dimensions of the THREE.JS main canvas
@@ -226,6 +235,25 @@ function initializeSceneContent() {
  * FUNCTIONS
  * *********
  */
+
+function showGlomStrength() {
+    let odorBtns = gecn("odor-btn")
+    for (var i = 0; i <odorBtns.length; i++) {
+        var odEl = ge(odorBtns[i].id)
+        if (odEl.classList.contains("sel-for-sim")) {
+            odEl.classList.remove("sel-for-sim")
+        }
+    }
+    markForSim(this.id)
+
+    let odor = this.id
+    for (let idx of glomeruliLimits) {
+        let glomName = "gsim_" + idx.toString()
+        // console.log(odorValues[odor][idx] * colorMapGlShades, Math.round(odorValues[odor][idx] * colorMapGlShades))
+        let value = Math.round(odorValues[odor][idx] * colorMapGlShades)
+        ge(glomName).style.backgroundColor = colorsGlom[value]
+    }
+}
 
 // Remove groups of cells from main canvas
 function cleanCanvas() {
@@ -422,7 +450,7 @@ function createGUI() {
 
 // highlight element when hovering over
 function highlightElement() {
-    let name = this.id
+    let name = "glom_" + this.id.slice(5)
 
     if (name != "glom--") {
         let element = scene.getObjectByName(name)
@@ -436,9 +464,55 @@ function highlightElement() {
     }
 }
 
+
+function selGloms() {
+    let glomBtns = gecn("glom-btn")
+    if (this.id == "sel-all-gloms") {
+        for (let i = 0; i < glomBtns.length; i++) {
+            markForSim(glomBtns[i].id, "all")
+        }
+    } else if (this.id == "des-all-gloms") {
+        for (let i = 0; i < glomBtns.length; i++) {
+            markForSim(glomBtns[i].id, "none")
+        }
+    } else if (this.id == "inv-all-gloms") {
+        for (let i = 0; i < glomBtns.length; i++) {
+            markForSim(glomBtns[i].id, "invert")
+        }
+    }
+}
+// mark glom for simulation
+function markGlom() {
+    markForSim(this.id, "")
+}
+
+function markForSim(el, opType) {
+    if (opType == "") {
+        if (!ge(el).classList.contains("sel-for-sim")) {
+            ge(el).classList.add("sel-for-sim")
+        } else {
+            ge(el).classList.remove("sel-for-sim")
+        }
+    } else if (opType == "all") {
+        if (!ge(el).classList.contains("sel-for-sim")) {
+            ge(el).classList.add("sel-for-sim")
+        }
+    } else if (opType == "none") {
+        if (ge(el).classList.contains("sel-for-sim")) {
+            ge(el).classList.remove("sel-for-sim")
+        }
+    } else if (opType == "invert") {
+        if (ge(el).classList.contains("sel-for-sim")) {
+            ge(el).classList.remove("sel-for-sim")
+        } else {
+            ge(el).classList.add("sel-for-sim")
+        }
+    }
+}
+
 // reset color and geometry on mouse leave
 function restoreColor() {
-    let name = this.id
+    let name = "glom_" + this.id.slice(5)
     let element = scene.getObjectByName(name)
     element.geometry = glom_base_geometry
 
@@ -784,17 +858,17 @@ function buildDOM() {
     v_accordion.classList.add('accordion')
 
     let explorerMainPanel = "explorer-body"
-    let explorer_item = createAccordionItem("explorer-header", "explorer-collapse", "Explorer Controls",
+    let explorer_item = createAccordionItem("explorer-header", "explorer-collapse", "EXPLORER CONTROLS",
         "action-accordion", "", ["collapse", "show"], [], explorerMainPanel)
 
     let submitMainPanel = "submit-body"
-    let submit_item = createAccordionItem("submit-header", "submit-collapse", "Submit Simulation",
+    let submit_item = createAccordionItem("submit-header", "submit-collapse", "RUN SIMULATION",
         "action-accordion", "", ["collapse"], ["collapsed"], submitMainPanel)
 
 
 
     let fetchMainPanel = "fetch-body"
-    let fetch_item = createAccordionItem("fetch-header", "fetch-collapse", "Fetch Simulation Results",
+    let fetch_item = createAccordionItem("fetch-header", "fetch-collapse", "FETCH RESULTS",
         "action-accordion", "", ["collapse"], ["collapsed"], fetchMainPanel)
 
     // append items to accordion
@@ -849,15 +923,16 @@ function populateSubmitPanel() {
     sniffSpanDiv.id = "sniff-span-div"
 
     let sniffSpan = cf("span")
-    sniffSpan.classList.add("input-group-text")
+    sniffSpan.classList.add("input-group-text", "span-param")
     sniffSpan.id = "sniff-span"
     sniffSpan.innerHTML = "Set Sniffing Interval (ms)"
 
     let sniffInput = cf("input")
+    sniffInput.id = "sniff-input"
     sniffInput.setAttribute("type", "text")
     sniffInput.setAttribute("aria-label", "Default")
     sniffInput.setAttribute("aria-describedby", "sniff-span")
-    sniffInput.classList.add("form-control")
+    sniffInput.classList.add("form-control", "input-param")
 
     sniffSpanDiv.appendChild(sniffSpan)
     sniffDiv.appendChild(sniffSpanDiv)
@@ -873,15 +948,16 @@ function populateSubmitPanel() {
     durSpanDiv.id = "dur-span-div"
 
     let durSpan = cf("span")
-    durSpan.classList.add("input-group-text")
+    durSpan.classList.add("input-group-text", "span-param")
     durSpan.id = "dur-span"
-    durSpan.innerHTML = "Set Simulation time (ms)"
+    durSpan.innerHTML = "Set Simulation time  (ms)"
 
     let durInput = cf("input")
+    durInput.id = "dur-input"
     durInput.setAttribute("type", "text")
     durInput.setAttribute("aria-label", "Default")
     durInput.setAttribute("aria-describedby", "dur-span")
-    durInput.classList.add("form-control")
+    durInput.classList.add("form-control", "input-param")
 
     durSpanDiv.appendChild(durSpan)
     durDiv.appendChild(durSpanDiv)
@@ -909,16 +985,49 @@ function populateSubmitPanel() {
         odorBtn.id = o
         odorBtn.innerHTML = o
         odorBtn.classList.add("odor-btn")
+        odorBtn.addEventListener("click", showGlomStrength)
+
 
         odorCol.appendChild(odorBtn)
         odorsRow.appendChild(odorCol)
     }
 
-    // Insert buttons for glomeruli
+    // Insert title for the glomerulus selection panel
     let simGlomTitle = cf("h5")
     simGlomTitle.innerHTML = "SELECT GLOMERULI"
     simGlomTitle.classList.add("list-title")
 
+    // Insert buttons for batch selections of glomeruli
+    let selBtnContainer = cf("div")
+    selBtnContainer.classList.add("row", "sel-glom-btn-row")
+
+    let selAllGlomBtn = cf("button")
+    selAllGlomBtn.id = "sel-all-gloms"
+    selAllGlomBtn.classList.add("col")
+    selAllGlomBtn.innerHTML = "Select All"
+    selAllGlomBtn.addEventListener("click", selGloms)
+
+    let desAllGlomBtn = cf("button")
+    desAllGlomBtn.id = "des-all-gloms"
+    desAllGlomBtn.classList.add("col")
+    desAllGlomBtn.innerHTML = "Deselect All"
+    desAllGlomBtn.addEventListener("click", selGloms)
+
+    let invAllGlomBtn = cf("button")
+    invAllGlomBtn.id = "inv-all-gloms"
+    invAllGlomBtn.classList.add("col")
+    invAllGlomBtn.innerHTML = "Invert Selection"
+    invAllGlomBtn.addEventListener("click", selGloms)
+
+
+    
+
+
+
+    selBtnContainer.appendChild(selAllGlomBtn)
+    selBtnContainer.appendChild(desAllGlomBtn)
+    selBtnContainer.appendChild(invAllGlomBtn)
+    
 
     let simGlomRow = cf("div")
     simGlomRow.classList.add("row")
@@ -928,35 +1037,33 @@ function populateSubmitPanel() {
         glomCol.classList.add("col", "glom-col")
 
         let glomBtn = cf("button")
-        glomBtn.id = glom.toString()
+        glomBtn.id = "gsim_" + glom.toString()
         glomBtn.innerHTML = glom.toString()
         glomBtn.classList.add("glom-btn")
+        glomBtn.addEventListener("mouseover", highlightElement)
+        glomBtn.addEventListener("click", markGlom)
+        glomBtn.addEventListener("mouseleave", restoreColor)
 
         glomCol.appendChild(glomBtn)
         simGlomRow.appendChild(glomCol)
     }
 
+// create color map
 
-    // Create canvas for glomeruli
-    let simCanvasDiv = cf('div')
-    simCanvasDiv.id = "sim-canvas-div"
-    let simCanvas = cf('canvas')
-    simCanvas.id = "sim-canvas"
-    simCanvas.classList.add('webgl')
-
-    simCanvasDiv.appendChild(simCanvas)
-
-
-
+    let colorMapImg = cf("img")
+    colorMapImg.classList.add("img-fluid", "colormap-img")
+    colorMapImg.setAttribute("src", colorMap)
 
     odorsContainer.appendChild(odorsTitle)
     odorsContainer.appendChild(odorsRow)
     odorsContainer.appendChild(simGlomTitle)
 
-    odorsContainer.appendChild(simGlomRow)
+    odorsContainer.appendChild(simGlomRow)    
+    odorsContainer.appendChild(colorMapImg)
+    odorsContainer.appendChild(selBtnContainer)
 
 
-    ge("submit-body").appendChild(odorsContainer)
+    ge("submit-body").appendChild(odorsContainer)   
     ge("submit-body").appendChild(sniffDiv)
     ge("submit-body").appendChild(durDiv)
     //ge("submit-body").appendChild(simCanvasDiv)
@@ -972,8 +1079,8 @@ function resize() {
     let out_width = ge("params").clientWidth
     let out_height = ge("banner").clientHeight
 
-    sizes.height = win_h - out_height;
-    sizes.width = win_w - out_width;
+    sizes.height = win_h - out_height - 7;
+    sizes.width = win_w - out_width -20;
 
     // Update camera
     camera.aspect = sizes.width / sizes.height

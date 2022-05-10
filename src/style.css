@@ -38,14 +38,16 @@ body {
 }
 
 
-.accordion-button, .accordion-body {
+.accordion-body {
     padding: 2px !important;
     background-color: black;
     color: white;
 }
 
 .accordion-button {
-    font-size: 13px !important;
+    padding: 8px !important;
+    font-size: 3px !important;
+    font-weight: bolder !important;
 }
 
 .list-group {
@@ -149,6 +151,7 @@ body {
 
 .odor-btn {
     width: 100% !important;
+    border: 5px solid white;
 }
 
 .odor-col {
@@ -162,16 +165,32 @@ body {
 }
 
 .glom-btn {
-   margin: 0px !important;
-   width: 100% !important;
+    margin: 0px !important;
+    width: 100% !important;
+    color: black !important;
+    font-weight: bolder !important;
+    border-top: 5px solid white;
+    border-bottom: 5px solid white;
+}
+
+.sel-glom-btn-row {
+    border-top: 6px solid black;
+    border-bottom: 6px solid black;
+}
+
+.sel-for-sim {
+    border-bottom: 5px solid blue;
 }
 
 .odor-container {
-    padding: 14px !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
 }
 
 .list-title {
     text-align: center;
+    margin-bottom: 5px;
+    margin-top: 15px;
 }
 
 #sim-canvas{
@@ -182,4 +201,25 @@ body {
 #sim-canvas-div {
     width: 100% !important;
     height: 250px !important;
+}
+
+.colormap-img {
+    padding: 0px !important;
+    margin: 0px !important;
+}
+
+#sniff-span{
+    padding: 2px !important;
+}
+
+#sniff-input {
+    padding: 2px !important;
+}
+
+#dur-span {
+    padding: 2px !important;
+}
+
+#dur-input {
+    padding: 2px !important;
 }
