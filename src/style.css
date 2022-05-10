@@ -154,6 +154,10 @@ body {
     border: 5px solid white;
 }
 
+.job-box-el {
+    text-align: center !important;
+}
+
 .odor-col {
     padding: 0px !important;
     margin: 0px !important;
@@ -171,6 +175,14 @@ body {
     font-weight: bolder !important;
     border-top: 5px solid white;
     border-bottom: 5px solid white;
+}
+
+.run-hpc-btn {
+    width: 100%;
+    background-color: wheat;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    font-weight: bolder;
 }
 
 .sel-glom-btn-row {

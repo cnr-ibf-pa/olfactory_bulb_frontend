@@ -13,10 +13,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import EBRAINS_logo from "../static/img/ebrains_logo.svg"
 import colorMap from "../static/img/colorMap.svg"
 
-import { Scene } from 'three'
-
 const axios = require('axios');
-const loadImage = require('load-img');
 
 let colormap = require('colormap')
 let colorMapGlShades = 10
@@ -38,6 +35,7 @@ medial tufted: [635-1904]
 granule: [1905-390516]
 blanes: [390517-390898]
 */
+
 const glomeruliLimits = _.range(0, 127)
 const mcLimits = _.range(0, 635)
 const tmcLimits = _.range(636, 1905)
@@ -68,16 +66,8 @@ const glom_hovered_geometry = new THREE.SphereGeometry(glom_selected_radius, glo
 
 const granule_radius = 6
 const granule_resolution = 6
-const granule_hovered_radius = 6
-const granule_selected_radius = 4
-
-const granule_base_color = new THREE.Color(0x12b9b5)
-const granule_hovered_color = new THREE.Color(0x85c4ee)
-const granule_selected_color = new THREE.Color(0x3b99d7)
 
 const granule_base_geometry = new THREE.SphereGeometry(granule_radius, granule_resolution, granule_resolution);
-const granule_hovered_geometry = new THREE.SphereGeometry(granule_hovered_radius, granule_resolution, granule_resolution);
-const granule_selected_geometry = new THREE.SphereGeometry(granule_selected_radius, granule_resolution, granule_resolution);
 
 const cameraPositions = [8855, -7873, 7045]
 const cameraFov = 20
@@ -85,16 +75,9 @@ const cameraFov = 20
 let currentGlomColor
 let odorValues
 
-const listeners = {
-    "glom": { "click": selectGlom, "mouseover": highlightElement, "mouseleave": restoreColor },
-    //"mitr": { "click": , "mouseover": , "mouseleave": },
-    //"tuft": { "click": , "mouseover": , "mouseleave": },
-
-}
 // Build the page DOM
 window.onload = buildDOM();
 var actualSizes = get_canvas_dimensions()
-
 
 /*
  * SET SCENE PARAMETERS 
@@ -235,6 +218,9 @@ function initializeSceneContent() {
  * FUNCTIONS
  * *********
  */
+function runSimulation() {
+
+}
 
 function showGlomStrength() {
     let odorBtns = gecn("odor-btn")
@@ -371,7 +357,6 @@ function removeCell() {
     }
     let cell = gecn(boxClass + " list-group-item active")[0].innerText
     removeSingleCell(cell)
-
 }
 
 function removeSingleCell(cell) {
@@ -525,7 +510,6 @@ function restoreColor() {
         } else {
             element.material.color = glom_inactive_color
         }
-
     }
 }
 
@@ -807,7 +791,6 @@ function createCellSelectionBox() {
 
     ge("explorer-body").appendChild(listGroupsBox)
     ge("explorer-body").appendChild(boxButtons)
-
 }
 
 
@@ -837,7 +820,6 @@ function buildDOM() {
     bannerLogoLink.appendChild(bannerLogoImg)
     bannerLogo.appendChild(bannerLogoLink)
 
-
     let b_title = cf('div')
     b_title.classList.add('col-6', 'banner-element', 'title')
 
@@ -864,8 +846,6 @@ function buildDOM() {
     let submitMainPanel = "submit-body"
     let submit_item = createAccordionItem("submit-header", "submit-collapse", "RUN SIMULATION",
         "action-accordion", "", ["collapse"], ["collapsed"], submitMainPanel)
-
-
 
     let fetchMainPanel = "fetch-body"
     let fetch_item = createAccordionItem("fetch-header", "fetch-collapse", "FETCH RESULTS",
@@ -906,11 +886,61 @@ function buildDOM() {
     // Populate collapsible panels
     createCellSelectionBox()
     populateSubmitPanel()
+    populateFetchPanel()
 
 
     return;
 }
 
+function checkSimStatus() {
+
+}
+
+function fetchSim() {
+
+}
+
+function populateFetchPanel() {
+    // job list title
+    let jobListTitle = cf("h5")
+    jobListTitle.innerHTML = "JOB LIST"
+    jobListTitle.classList.add("list-title")
+
+    // create group item for job listing
+    let jobList = cf("div")
+    jobList.classList.add("list-group")
+    // create dummy element
+    let el = cf('a')
+    el.classList.add("list-group-item", "list-group-item-action", "list-group-item-light", "job-box-el")
+    el.setAttribute("href", "#")
+    el.innerHTML = "--"
+    jobList.appendChild(el)
+
+    // check simulations button
+    let checkSimBtn = cf("button")
+    checkSimBtn.id = "check-sim-btn"
+    checkSimBtn.innerHTML = "CHECK SIMULATION STATUS"
+    checkSimBtn.classList.add("run-hpc-btn")
+    checkSimBtn.addEventListener("click", checkSimStatus)
+
+    // fetch simulation button
+    let fetchSimBtn = cf("button")
+    fetchSimBtn.id = "check-sim-btn"
+    fetchSimBtn.innerHTML = "FETCH SIMULATION"
+    fetchSimBtn.classList.add("run-hpc-btn")
+    fetchSimBtn.addEventListener("click", fetchSim)
+
+    // 
+    ge("fetch-body").appendChild(jobListTitle)
+    ge("fetch-body").appendChild(jobList)
+    ge("fetch-body").appendChild(checkSimBtn)
+    ge("fetch-body").appendChild(fetchSimBtn)
+
+
+
+}
+
+// Insert DOM elements in the RUN SIMULATION panel
 function populateSubmitPanel() {
 
     // Sniffing interval input
@@ -962,6 +992,15 @@ function populateSubmitPanel() {
     durSpanDiv.appendChild(durSpan)
     durDiv.appendChild(durSpanDiv)
     durDiv.appendChild(durInput)
+
+
+    // Run simulatioin button
+    let runSimBtn = cf("button")
+    runSimBtn.id = "run-sim-btn"
+    runSimBtn.innerHTML = "RUN"
+    runSimBtn.classList.add("run-hpc-btn")
+    runSimBtn.addEventListener("click", runSimulation)
+
 
     // Odors div
     let odorsList = ["Apple", "Banana", "Basil", "Black_Pepper", "Cheese", "Chocolate", "Cinnamon", "Cloves",
@@ -1019,11 +1058,6 @@ function populateSubmitPanel() {
     invAllGlomBtn.innerHTML = "Invert Selection"
     invAllGlomBtn.addEventListener("click", selGloms)
 
-
-    
-
-
-
     selBtnContainer.appendChild(selAllGlomBtn)
     selBtnContainer.appendChild(desAllGlomBtn)
     selBtnContainer.appendChild(invAllGlomBtn)
@@ -1061,12 +1095,12 @@ function populateSubmitPanel() {
     odorsContainer.appendChild(simGlomRow)    
     odorsContainer.appendChild(colorMapImg)
     odorsContainer.appendChild(selBtnContainer)
-
-
+    
     ge("submit-body").appendChild(odorsContainer)   
     ge("submit-body").appendChild(sniffDiv)
     ge("submit-body").appendChild(durDiv)
-    //ge("submit-body").appendChild(simCanvasDiv)
+
+    ge("submit-body").appendChild(runSimBtn)
 }
 
 
@@ -1255,9 +1289,6 @@ function addCell(data, cell) {
     plotGranuleCell(cell)
     renderer.render(scene, camera);
 }
-
-
-//////////////////////////////////
 
 // create element function
 function cf(type) {
