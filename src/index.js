@@ -288,10 +288,6 @@ function showWeights() {
     let obj
 
     let type = this.id.slice(0, 3)
-    if (type == "inh")
-        typeIdx = 0
-    else
-        typeIdx = 1
 
     if (this.id == "inh-mitral-btn" || this.id == "exc-mitral-btn") {
         boxClass = "mitr-box-el"
@@ -303,30 +299,31 @@ function showWeights() {
     if (cell == "--") {
         return
     } else {
+        // plot the selected cell if not plotted yet
         if (!Object.keys(plottedNet).includes(cell)) {
             addCell(allMTCellsPositions["data"][cell], cell)
         }
         let cellElConn = simulatedConnections
         let dendEl = plottedNet[cell]["dend"]
-
         for (let cde of Object.keys(dendEl)) {
-            wgh = 1
-            for (let conn of Object.keys(cellElConn[cell][cde])) {
-                crrWgh = cellElConn[cell][cde][conn][typeIdx]
-                if (crrWgh > wgh)
-                    wgh = crrWgh
-            }
-            for (let dseg in dendEl[cde]) {
-                obj = cell + "_dend_" + cde + "_" + dseg
-
-                element = scene.getObjectByName(obj)
-                if (element) {
-                    element.material.color = threeColorArrayCell[wgh.toString()]
-                } else {
-                    console.log("not found: ", obj)
+            let dsegLen = dendEl[cde].length - 1
+            
+            for (let gcid of Object.keys(cellElConn[cell][cde])) {
+                crrWgh = cellElConn[cell][cde][gcid][type]
+                for (let w = 0; w < crrWgh.length; w += 2) {
+                    let wPos = crrWgh[w + 1]
+                    let wStr = crrWgh[w]
+                    let dsegPos = Math.round(dsegLen * wPos).toString()
+                    //console.log(cde, gcid, dsegLen, dsegPos, wPos, wStr)
+                    obj = cell + "_dend_" + cde + "_" + dsegPos
+                    element = scene.getObjectByName(obj)
+                    if (element) {
+                        element.material.color = threeColorArrayCell[wStr.toString()]
+                    } else {
+                        console.log("not found: ", obj)
+                    }
                 }
-                //element.material.color()
-            }
+            }            
         }
     }
 }
@@ -350,11 +347,16 @@ function plotCell() {
 function plotGranuleCell(cell) {
     for (let k of Object.keys(simulatedConnections[cell])) {
         for (let ik of Object.keys(simulatedConnections[cell][k])) {
+            let gcInhConn = simulatedConnections[cell][k][ik]["inh"]
+            let strength = 0
+            for (let ist = 0; ist < gcInhConn.length; ist+=2) {
+                strength = Math.max(strength, gcInhConn[ist])
+            }
             var geometry = granule_base_geometry; // (radius, widthSegments, heightSegments)
             var material = new THREE.MeshStandardMaterial({
                 depthWrite: false, transparent: false,
                 opacity: 1.0, wireframe: false,
-                color: threeColorArrayGC[simulatedConnections[cell][k][ik][0].toString()]
+                color: threeColorArrayGC[strength.toString()]
             })
             var sphere = new THREE.Mesh(geometry, material)
             sphere.position.set(allGranulePositions[ik][0], allGranulePositions[ik][1], allGranulePositions[ik][2]);
