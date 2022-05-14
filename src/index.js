@@ -150,39 +150,51 @@ window.addEventListener('resize', resize);
 createScene()
 resize()
 animate()
-getSimulationData()
+getSimulationData("")
 
 
 //getSimulatedCellIds()
 //createGUI()
 
 
-function getSimulationData() {
-    axios.get('https://127.0.0.1:8000/ob/ob_dict')
+function getSimulationData(origin) {
+    let url, demoUrl
+
+    demoUrl = "https://corsproxy.hbpneuromorphic.eu/https://object.cscs.ch:443/v1/AUTH_c0a333ecf7c045809321ce9d9ecdfdea/web-resources-bsp/data/olfactory-bulb/demo_sim/"
+
+    if (origin == "") {
+        url = demoUrl
+    } else {
+        url = origin
+    }
+    axios.get(demoUrl + 'ob_dict.json')
         .then(glomDict => {
+            console.log(glomDict)
             allGlomCoord = glomDict.data.glom_coord
-            axios.get('https://127.0.0.1:8000/ob/simulated_gloms')
+            axios.get(url + 'simgloms.json')
                 .then(simGloms => {
+                    console.log(url + 'simgloms.json')
                     let simulatedGlomsNum = simGloms.data.sim_gloms
                     for (let sg of simulatedGlomsNum) {
                         simulatedGloms.push(sg.toString())
                     }
-                    axios.get('https://127.0.0.1:8000/ob/simulated_cell_ids')
+                    axios.get(url + 'simcells.json')
                         .then(cellIds => {
-                            let simulatedCellIdsNum = cellIds["data"]["cell_ids"];
+                            console.log(cellIds)
+                            let simulatedCellIdsNum = cellIds["data"]["sim_cells"];
                             for (let c of simulatedCellIdsNum) {
                                 simulatedCellIds.push(c.toString())
                             }
-                            axios.get('https://127.0.0.1:8000/ob/connections')
+                            axios.get(url + 'connections.json')
                                 .then(connections => {
                                     simulatedConnections = connections.data
-                                    axios.get('https://127.0.0.1:8000/ob/all_granules_pos')
+                                    axios.get(demoUrl + "granule_cells_red.json")
                                         .then(granules => {
                                             allGranulePositions = granules.data
-                                            axios.get('https://127.0.0.1:8000/ob/odors')
+                                            axios.get(demoUrl + 'eta_norm.json')
                                                 .then(odors => {
                                                     odorValues = odors.data
-                                                    axios.get('https://127.0.0.1:8000/ob/all_mt_pos')
+                                                    axios.get(demoUrl + 'all_mt_cells.json')
                                                         .then(allMTCellsPos => {
                                                             allMTCellsPositions = allMTCellsPos
                                                             initializeSceneContent()
@@ -210,7 +222,7 @@ function setColorThreeArray(color1, color2, numColors, maxColorIdx) {
 }
 
 function setColorArray(color1, color2, numColors) {
-     let colorGradientArray = colorGradient
+    let colorGradientArray = colorGradient
         .setGradient(color1, color2)
         .setMidpoint(numColors)
         .getArray()
@@ -246,7 +258,7 @@ function runSimulation() {
 
 function showGlomStrength() {
     let odorBtns = gecn("odor-btn")
-    for (var i = 0; i <odorBtns.length; i++) {
+    for (var i = 0; i < odorBtns.length; i++) {
         var odEl = ge(odorBtns[i].id)
         if (odEl.classList.contains("sel-for-sim")) {
             odEl.classList.remove("sel-for-sim")
@@ -280,12 +292,7 @@ function cleanCanvas() {
 
 function showWeights() {
 
-    let boxClass
-    let typeIdx
-    let element
-    let wgh
-    let crrWgh
-    let obj
+    let boxClass, element, crrWgh, obj, cell
 
     let type = this.id.slice(0, 3)
 
@@ -294,53 +301,66 @@ function showWeights() {
     } else {
         boxClass = "tuft-box-el"
     }
-    let cell = gecn(boxClass + " list-group-item active")[0].innerText
 
-    if (cell == "--") {
-        return
-    } else {
-        // plot the selected cell if not plotted yet
-        if (!Object.keys(plottedNet).includes(cell)) {
-            addCell(allMTCellsPositions["data"][cell], cell)
-        }
-        let cellElConn = simulatedConnections
-        let dendEl = plottedNet[cell]["dend"]
-        for (let cde of Object.keys(dendEl)) {
-            let dsegLen = dendEl[cde].length - 1
-            
-            for (let gcid of Object.keys(cellElConn[cell][cde])) {
-                crrWgh = cellElConn[cell][cde][gcid][type]
-                for (let w = 0; w < crrWgh.length; w += 2) {
-                    let wPos = crrWgh[w + 1]
-                    let wStr = crrWgh[w]
-                    let dsegPos = Math.round(dsegLen * wPos).toString()
-                    //console.log(cde, gcid, dsegLen, dsegPos, wPos, wStr)
-                    obj = cell + "_dend_" + cde + "_" + dsegPos
-                    element = scene.getObjectByName(obj)
-                    if (element) {
-                        element.material.color = threeColorArrayCell[wStr.toString()]
-                    } else {
-                        console.log("not found: ", obj)
+    let cells = gecn(boxClass + " list-group-item active")
+
+    for (let idx = 0; idx < cells.length; idx++) {
+        cell = cells[idx].innerText
+        if (cell == "--") {
+            continue
+        } else {
+            // plot the selected cell if not plotted yet
+            if (!Object.keys(plottedNet).includes(cell)) {
+                addCell(allMTCellsPositions["data"][cell], cell)
+            }
+            let cellElConn = simulatedConnections
+            let dendEl = plottedNet[cell]["dend"]
+            for (let cde of Object.keys(dendEl)) {
+                let dsegLen = dendEl[cde].length - 1
+
+                for (let gcid of Object.keys(cellElConn[cell][cde])) {
+                    crrWgh = cellElConn[cell][cde][gcid][type]
+                    for (let w = 0; w < crrWgh.length; w += 2) {
+                        let wPos = crrWgh[w + 1]
+                        let wStr = crrWgh[w]
+                        let dsegPos = Math.round(dsegLen * wPos).toString()
+                        //console.log(cde, gcid, dsegLen, dsegPos, wPos, wStr)
+                        obj = cell + "_dend_" + cde + "_" + dsegPos
+                        element = scene.getObjectByName(obj)
+                        if (element) {
+                            element.material.color = threeColorArrayCell[wStr.toString()]
+                        } else {
+                            console.log("not found: ", obj)
+                        }
                     }
                 }
-            }            
+            }
         }
+
+
+
     }
 }
 
 
 // Launch the addCell procedure depending on the selected cell
 function plotCell() {
-    let boxClass
+    let boxClass, cell
     if (this.id == "add-mitral-btn") {
         boxClass = "mitr-box-el"
     } else {
         boxClass = "tuft-box-el"
     }
-    let cell = gecn(boxClass + " list-group-item active")[0].innerText
-    if (Object.keys(plottedNet).includes(cell))
-        return
-    addCell(allMTCellsPositions["data"][cell], cell);
+    let cells = gecn(boxClass + " list-group-item active")
+
+    for (let idx = 0; idx < cells.length; idx++) {
+        cell = cells[idx].innerText
+        if (Object.keys(plottedNet).includes(cell)) {
+            continue
+        } else {
+            addCell(allMTCellsPositions["data"][cell], cell);
+        }
+    }
 }
 
 // Plot all granule cells connected to a given mitral or tufted cell
@@ -349,7 +369,7 @@ function plotGranuleCell(cell) {
         for (let ik of Object.keys(simulatedConnections[cell][k])) {
             let gcInhConn = simulatedConnections[cell][k][ik]["inh"]
             let strength = 0
-            for (let ist = 0; ist < gcInhConn.length; ist+=2) {
+            for (let ist = 0; ist < gcInhConn.length; ist += 2) {
                 strength = Math.max(strength, gcInhConn[ist])
             }
             var geometry = granule_base_geometry; // (radius, widthSegments, heightSegments)
@@ -373,14 +393,19 @@ function plotGranuleCell(cell) {
 
 // Remove cell from canvas
 function removeCell() {
-    let boxClass
+    let boxClass, cell
     if (this.id == "remove-mitral-btn") {
         boxClass = "mitr-box-el"
     } else {
         boxClass = "tuft-box-el"
     }
-    let cell = gecn(boxClass + " list-group-item active")[0].innerText
-    removeSingleCell(cell)
+
+    let cells = gecn(boxClass + " list-group-item active")
+
+    for (let idx = 0; idx < cells.length; idx++) {
+        cell = cells[idx].innerText
+        removeSingleCell(cell)
+    }
 }
 
 function removeSingleCell(cell) {
@@ -695,17 +720,31 @@ function createCellSelectionBox() {
     let boxButtons = cf('div')
     boxButtons.classList.add('cell-box-btn')
 
+    // Select All Mitral Button
+    let selMitralBtn = cf('button')
+    selMitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "sel-des")
+    selMitralBtn.innerHTML = "Select All"
+    selMitralBtn.id = "sel-mitral-btn"
+    selMitralBtn.addEventListener("click", selectDeselectAll)
+
+    // Deselect All Mitral Button
+    let desMitralBtn = cf('button')
+    desMitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "sel-des")
+    desMitralBtn.innerHTML = "Deselect All"
+    desMitralBtn.id = "des-mitral-btn"
+    desMitralBtn.addEventListener("click", selectDeselectAll)
+
     // Add Mitral Button
     let addMitralBtn = cf('button')
     addMitralBtn.classList.add("btn", "btn-secondary", "cell-btn")
-    addMitralBtn.innerHTML = "Add Cell"
+    addMitralBtn.innerHTML = "Add Cell(s)"
     addMitralBtn.id = "add-mitral-btn"
     addMitralBtn.addEventListener("click", plotCell)
 
     // Remove Mitral Button
     let removeMitralBtn = cf('button')
     removeMitralBtn.classList.add("btn", "btn-secondary", "cell-btn")
-    removeMitralBtn.innerHTML = "Remove Cell"
+    removeMitralBtn.innerHTML = "Remove Cell(s)"
     removeMitralBtn.id = "remove-mitral-btn"
     removeMitralBtn.addEventListener("click", removeCell)
 
@@ -730,17 +769,33 @@ function createCellSelectionBox() {
     clrMitralBtn.id = "clr-mitral-btn"
     clrMitralBtn.addEventListener("click", showWeights)
 
+
+    // Select All Tufted Button
+    let selTuftedBtn = cf('button')
+    selTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn", "sel-des")
+    selTuftedBtn.innerHTML = "Select All"
+    selTuftedBtn.id = "sel-tufted-btn"
+    selTuftedBtn.addEventListener("click", selectDeselectAll)
+
+    // Deselect All Tufted Button
+    let desTuftedBtn = cf('button')
+    desTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn", "sel-des")
+    desTuftedBtn.innerHTML = "Deselect All"
+    desTuftedBtn.id = "des-tufted-btn"
+    desTuftedBtn.addEventListener("click", selectDeselectAll)
+
+
     // Add Tufted Button
     let addTuftedBtn = cf('button')
-    addTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
-    addTuftedBtn.innerHTML = "Add Cell"
+    addTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn")
+    addTuftedBtn.innerHTML = "Add Cell(s)"
     addTuftedBtn.id = "add-tufted-btn"
     addTuftedBtn.addEventListener("click", plotCell)
 
     // Remove Tufted Button
     let removeTuftedBtn = cf('button')
     removeTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn")
-    removeTuftedBtn.innerHTML = "Remove Cell"
+    removeTuftedBtn.innerHTML = "Remove Cell(s)"
     removeTuftedBtn.id = "remove-tufted-btn"
     removeTuftedBtn.addEventListener("click", removeCell)
 
@@ -767,21 +822,21 @@ function createCellSelectionBox() {
 
     //
     let cleanMCBtn = cf('button')
-    cleanMCBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
+    cleanMCBtn.classList.add("btn", "btn-secondary", "cell-btn")
     cleanMCBtn.innerHTML = "Remove All Mitral Cells"
     cleanMCBtn.id = "clean-mc-btn"
     cleanMCBtn.addEventListener("click", cleanCanvas)
 
     //
     let cleanTMCBtn = cf('button')
-    cleanTMCBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
+    cleanTMCBtn.classList.add("btn", "btn-secondary", "cell-btn")
     cleanTMCBtn.innerHTML = "Remove All Tufted Cells"
     cleanTMCBtn.id = "clean-tmc-btn"
     cleanTMCBtn.addEventListener("click", cleanCanvas)
 
     //
     let cleanGrCBtn = cf('button')
-    cleanGrCBtn.classList.add("btn", "btn-secondary", "cell-btn", "col")
+    cleanGrCBtn.classList.add("btn", "btn-secondary", "cell-btn")
     cleanGrCBtn.innerHTML = "Remove All Granule Cells"
     cleanGrCBtn.id = "clean-grc-btn"
     cleanGrCBtn.addEventListener("click", cleanCanvas)
@@ -795,11 +850,14 @@ function createCellSelectionBox() {
 
     // Append buttons in mitral box
     mitrListBox.appendChild(mitrBox)
+
     mitrListBox.appendChild(addMitralBtn)
     mitrListBox.appendChild(removeMitralBtn)
     mitrListBox.appendChild(inhMitralBtn)
     mitrListBox.appendChild(excMitralBtn)
-    mitrListBox.appendChild(clrMitralBtn)
+    //mitrListBox.appendChild(clrMitralBtn)
+    mitrListBox.appendChild(selMitralBtn)
+    mitrListBox.appendChild(desMitralBtn)
 
     // Append buttons in tufted box
     tuftListBox.appendChild(tuftBox)
@@ -807,7 +865,10 @@ function createCellSelectionBox() {
     tuftListBox.appendChild(removeTuftedBtn)
     tuftListBox.appendChild(inhTuftedBtn)
     tuftListBox.appendChild(excTuftedBtn)
-    tuftListBox.appendChild(clrTuftedBtn)
+    //tuftListBox.appendChild(clrTuftedBtn)
+    tuftListBox.appendChild(selTuftedBtn)
+    tuftListBox.appendChild(desTuftedBtn)
+
 
     listGroupsBox.appendChild(glomListBox)
     listGroupsBox.appendChild(mitrListBox)
@@ -1085,7 +1146,7 @@ function populateSubmitPanel() {
     selBtnContainer.appendChild(selAllGlomBtn)
     selBtnContainer.appendChild(desAllGlomBtn)
     selBtnContainer.appendChild(invAllGlomBtn)
-    
+
 
     let simGlomRow = cf("div")
     simGlomRow.classList.add("row")
@@ -1106,7 +1167,7 @@ function populateSubmitPanel() {
         simGlomRow.appendChild(glomCol)
     }
 
-// create color map
+    // create color map
 
     let colorMapImg = cf("img")
     colorMapImg.classList.add("img-fluid", "colormap-img")
@@ -1116,11 +1177,11 @@ function populateSubmitPanel() {
     odorsContainer.appendChild(odorsRow)
     odorsContainer.appendChild(simGlomTitle)
 
-    odorsContainer.appendChild(simGlomRow)    
+    odorsContainer.appendChild(simGlomRow)
     odorsContainer.appendChild(colorMapImg)
     odorsContainer.appendChild(selBtnContainer)
-    
-    ge("submit-body").appendChild(odorsContainer)   
+
+    ge("submit-body").appendChild(odorsContainer)
     ge("submit-body").appendChild(sniffDiv)
     ge("submit-body").appendChild(durDiv)
 
@@ -1138,7 +1199,7 @@ function resize() {
     let out_height = ge("banner").clientHeight
 
     sizes.height = win_h - out_height - 7;
-    sizes.width = win_w - out_width -20;
+    sizes.width = win_w - out_width - 20;
 
     // Update camera
     camera.aspect = sizes.width / sizes.height
@@ -1312,6 +1373,39 @@ function addCell(data, cell) {
     }
     plotGranuleCell(cell)
     renderer.render(scene, camera);
+}
+
+function selectDeselectAll() {
+    if (this.id == "sel-mitral-btn") {
+        let allEls = gecn("mitr-box-el")
+        for (let elIdx = 0; elIdx < allEls.length; elIdx++) {
+            if (allEls[elIdx].innerText == "--") {
+                allEls[elIdx].classList.remove("active");
+            } else {
+                allEls[elIdx].classList.add("active");
+            }
+        }
+    } else if (this.id == "des-mitral-btn") {
+        let allEls = gecn("mitr-box-el")
+        for (let elIdx = 0; elIdx < allEls.length; elIdx++) {
+            allEls[elIdx].classList.remove("active");
+        }
+    } else if (this.id == "sel-tufted-btn") {
+        let allEls = gecn("tuft-box-el")
+        for (let elIdx = 0; elIdx < allEls.length; elIdx++) {
+            if (allEls[elIdx].innerText == "--") {
+                allEls[elIdx].classList.remove("active");
+            } else {
+                allEls[elIdx].classList.add("active");
+            }
+        }
+
+    } else if (this.id == "des-tufted-btn") {
+        let allEls = gecn("tuft-box-el")
+        for (let elIdx = 0; elIdx < allEls.length; elIdx++) {
+            allEls[elIdx].classList.remove("active");
+        }
+    }
 }
 
 // create element function

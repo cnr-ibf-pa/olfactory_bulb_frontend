@@ -93,7 +93,10 @@ body {
     width: 100% !important;
 }
 
-
+.sel-des {
+    background-color: lightgrey !important;
+    color: darkslategrey !important;
+}
 /* banner */
 .banner {
     color: white;
@@ -126,7 +129,7 @@ body {
 }
 
 #glom-box-names {
-    height: 346px;
+    height: 368px;
 }
 
 .mitr-box-el {
