@@ -32,9 +32,7 @@ body {
 }
 
 .canvas-container {
-    border-right-style: solid;
-    border-right-color: red;
-    border-right-width: 2px;
+    margin-bottom: 1px;
 }
 
 
@@ -109,14 +107,24 @@ body {
 }
 
 .banner-element {
-    vertical-align: middle !important;
+    padding: 20px 0 !important;
     text-align: center;
     font-family: 'Open Sans';
 }
 
-    .banner-element.title {
-        font-size: 22px;
-    }
+.align-left {
+    text-align: left !important;
+    padding-left: 20px !important;
+}
+
+.align-right {
+    text-align: right !important;
+    padding-right: 20px !important;
+}
+
+.banner-element.title {
+    font-size: 26px;
+}
 
 #mitr-box-names {
     height: 221px;
@@ -237,4 +245,29 @@ body {
 
 #dur-input {
     padding: 2px !important;
+}
+
+.ob-modal {
+    max-width: 450px !important;
+    opacity: 0.99 !important;
+    max-height: 90% !important;
+}
+
+.waiting-modal {
+    width: 25% !important;
+    max-height: 90% !important;
+    text-align: center;
+    opacity: 0.99 !important;
+}
+
+.modal-header {
+    background-color: white;
+}
+
+.modal-body {
+    background-color: white;
+}
+
+.modal-footer {
+    background-color: white;
 }
