@@ -1,8 +1,11 @@
-import _ from 'lodash'
+import _, { remove } from 'lodash'
 import './style.css'
 import 'jquery'
-import 'bootstrap'
+
+//import 'bootstrap'
 import 'bootstrap/dist/css/bootstrap.min.css'
+import { Modal } from 'bootstrap'
+
 import { GUI } from 'dat.gui'
 import colorGradient from "javascript-color-gradient"
 
@@ -10,9 +13,13 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
 import EBRAINS_logo from "../static/img/ebrains_logo.svg"
+import infoLogo from "../static/img/info-circle.svg"
+
 import colorMap from "../static/img/colorMap.svg"
 
 const axios = require('axios');
+const mhe = require('./manageHtmlElements')
+const obmod = require('./obModals')
 
 let colormap = require('colormap')
 let colorMapGlShades = 10
@@ -74,7 +81,7 @@ const cameraFov = 20
 let currentGlomColor
 let odorValues
 
-
+let visDelay = 500
 
 // ========================== AUTHENTICATION ======================================00 
 import * as m_oidc from './handlers/auth.js';
@@ -144,6 +151,7 @@ let simulatedGloms = []
 let simulatedConnections // all connections created during the simulation
 let allGranulePositions // dictionary of all granule cell positions
 let allMTCellsPositions
+const waitingBootModal = new Modal(mhe.ge('waiting-modal'), { keyboard: false })
 
 window.addEventListener('resize', resize);
 
@@ -153,13 +161,17 @@ animate()
 getSimulationData("")
 
 
+
+
+
 //getSimulatedCellIds()
 //createGUI()
 
 
 function getSimulationData(origin) {
-    let url, demoUrl
+    waitingBootModal.show()
 
+    let url, demoUrl
     demoUrl = "https://corsproxy.hbpneuromorphic.eu/https://object.cscs.ch:443/v1/AUTH_c0a333ecf7c045809321ce9d9ecdfdea/web-resources-bsp/data/olfactory-bulb/demo_sim/"
 
     if (origin == "") {
@@ -167,17 +179,18 @@ function getSimulationData(origin) {
     } else {
         url = origin
     }
+    obmod.setModalMessage("waiting-modal-msg", "Loading glomeruli positions ...")
     axios.get(demoUrl + 'ob_dict.json')
         .then(glomDict => {
-            console.log(glomDict)
             allGlomCoord = glomDict.data.glom_coord
             axios.get(url + 'simgloms.json')
                 .then(simGloms => {
-                    console.log(url + 'simgloms.json')
                     let simulatedGlomsNum = simGloms.data.sim_gloms
                     for (let sg of simulatedGlomsNum) {
                         simulatedGloms.push(sg.toString())
                     }
+                    obmod.setModalMessage("waiting-modal-msg", "Loading simulated cells list ...")
+
                     axios.get(url + 'simcells.json')
                         .then(cellIds => {
                             console.log(cellIds)
@@ -185,19 +198,26 @@ function getSimulationData(origin) {
                             for (let c of simulatedCellIdsNum) {
                                 simulatedCellIds.push(c.toString())
                             }
+                            obmod.setModalMessage("waiting-modal-msg", "Loading simulated connections ...")
+
                             axios.get(url + 'connections.json')
                                 .then(connections => {
                                     simulatedConnections = connections.data
+                                    obmod.setModalMessage("waiting-modal-msg", "Loading granule cells positions ...")
+
                                     axios.get(demoUrl + "granule_cells_red.json")
                                         .then(granules => {
                                             allGranulePositions = granules.data
                                             axios.get(demoUrl + 'eta_norm.json')
                                                 .then(odors => {
                                                     odorValues = odors.data
+                                                    obmod.setModalMessage("waiting-modal-msg", "Loading mitral/tufted cell positions ...")
+
                                                     axios.get(demoUrl + 'all_mt_cells.json')
                                                         .then(allMTCellsPos => {
                                                             allMTCellsPositions = allMTCellsPos
                                                             initializeSceneContent()
+                                                            waitingBootModal.hide()
                                                         })
                                                 })
 
@@ -231,7 +251,7 @@ function setColorArray(color1, color2, numColors) {
 
 // Get dimensions of the THREE.JS main canvas
 function get_canvas_dimensions() {
-    return [ge("params").clientWidth, ge("banner").clientHeight]
+    return [mhe.ge("params").clientWidth, mhe.ge("banner").clientHeight]
 }
 
 function initializeSceneContent() {
@@ -257,9 +277,9 @@ function runSimulation() {
 }
 
 function showGlomStrength() {
-    let odorBtns = gecn("odor-btn")
+    let odorBtns = mhe.gecn("odor-btn")
     for (var i = 0; i < odorBtns.length; i++) {
-        var odEl = ge(odorBtns[i].id)
+        var odEl = mhe.ge(odorBtns[i].id)
         if (odEl.classList.contains("sel-for-sim")) {
             odEl.classList.remove("sel-for-sim")
         }
@@ -271,7 +291,7 @@ function showGlomStrength() {
         let glomName = "gsim_" + idx.toString()
         // console.log(odorValues[odor][idx] * colorMapGlShades, Math.round(odorValues[odor][idx] * colorMapGlShades))
         let value = Math.round(odorValues[odor][idx] * colorMapGlShades)
-        ge(glomName).style.backgroundColor = colorsGlom[value]
+        mhe.ge(glomName).style.backgroundColor = colorsGlom[value]
     }
 }
 
@@ -302,7 +322,7 @@ function showWeights() {
         boxClass = "tuft-box-el"
     }
 
-    let cells = gecn(boxClass + " list-group-item active")
+    let cells = mhe.gecn(boxClass + " list-group-item active")
 
     for (let idx = 0; idx < cells.length; idx++) {
         cell = cells[idx].innerText
@@ -336,31 +356,39 @@ function showWeights() {
                 }
             }
         }
-
-
-
     }
 }
 
+function delay(time) {
+    return new Promise(resolve => setTimeout(resolve, time));
+}
 
 // Launch the addCell procedure depending on the selected cell
 function plotCell() {
     let boxClass, cell
-    if (this.id == "add-mitral-btn") {
-        boxClass = "mitr-box-el"
-    } else {
-        boxClass = "tuft-box-el"
-    }
-    let cells = gecn(boxClass + " list-group-item active")
+    obmod.setModalMessage("waiting-modal-msg", "Plotting selected cells ...")
 
-    for (let idx = 0; idx < cells.length; idx++) {
-        cell = cells[idx].innerText
-        if (Object.keys(plottedNet).includes(cell)) {
-            continue
+    waitingBootModal.show()
+    delay(visDelay).then(() => {
+        if (this.id == "add-mitral-btn") {
+            boxClass = "mitr-box-el"
         } else {
-            addCell(allMTCellsPositions["data"][cell], cell);
+            boxClass = "tuft-box-el"
         }
-    }
+        let cells = mhe.gecn(boxClass + " list-group-item active")
+
+        for (let idx = 0; idx < cells.length; idx++) {
+            cell = cells[idx].innerText
+            if (Object.keys(plottedNet).includes(cell)) {
+                continue
+            } else {
+                addCell(allMTCellsPositions["data"][cell], cell);
+            }
+        }
+    })
+    delay(visDelay).then(() => {
+        waitingBootModal.hide()
+    })
 }
 
 // Plot all granule cells connected to a given mitral or tufted cell
@@ -400,7 +428,7 @@ function removeCell() {
         boxClass = "tuft-box-el"
     }
 
-    let cells = gecn(boxClass + " list-group-item active")
+    let cells = mhe.gecn(boxClass + " list-group-item active")
 
     for (let idx = 0; idx < cells.length; idx++) {
         cell = cells[idx].innerText
@@ -500,7 +528,7 @@ function highlightElement() {
 
 
 function selGloms() {
-    let glomBtns = gecn("glom-btn")
+    let glomBtns = mhe.gecn("glom-btn")
     if (this.id == "sel-all-gloms") {
         for (let i = 0; i < glomBtns.length; i++) {
             markForSim(glomBtns[i].id, "all")
@@ -522,24 +550,24 @@ function markGlom() {
 
 function markForSim(el, opType) {
     if (opType == "") {
-        if (!ge(el).classList.contains("sel-for-sim")) {
-            ge(el).classList.add("sel-for-sim")
+        if (!mhe.ge(el).classList.contains("sel-for-sim")) {
+            mhe.ge(el).classList.add("sel-for-sim")
         } else {
-            ge(el).classList.remove("sel-for-sim")
+            mhe.ge(el).classList.remove("sel-for-sim")
         }
     } else if (opType == "all") {
-        if (!ge(el).classList.contains("sel-for-sim")) {
-            ge(el).classList.add("sel-for-sim")
+        if (!mhe.ge(el).classList.contains("sel-for-sim")) {
+            mhe.ge(el).classList.add("sel-for-sim")
         }
     } else if (opType == "none") {
-        if (ge(el).classList.contains("sel-for-sim")) {
-            ge(el).classList.remove("sel-for-sim")
+        if (mhe.ge(el).classList.contains("sel-for-sim")) {
+            mhe.ge(el).classList.remove("sel-for-sim")
         }
     } else if (opType == "invert") {
-        if (ge(el).classList.contains("sel-for-sim")) {
-            ge(el).classList.remove("sel-for-sim")
+        if (mhe.ge(el).classList.contains("sel-for-sim")) {
+            mhe.ge(el).classList.remove("sel-for-sim")
         } else {
-            ge(el).classList.add("sel-for-sim")
+            mhe.ge(el).classList.add("sel-for-sim")
         }
     }
 }
@@ -623,25 +651,25 @@ function populateCellDropdown(elType, elementList) {
     // create box
     let elId = elType + "-box-names"
 
-    let currentEl = ge(elId)
+    let currentEl = mhe.ge(elId)
 
     if (currentEl) {
         currentEl.remove()
     }
 
     // remove current cell box
-    if (ge(elId)) {
-        ge(elId).remove()
+    if (mhe.ge(elId)) {
+        mhe.ge(elId).remove()
     }
 
-    let cellBox = cf('div')
+    let cellBox = mhe.cf('div')
     cellBox.classList.add("list-group")
     cellBox.id = elId
 
     // prepend first null element
     const allElements = ["--"].concat(elementList)
     for (let i of allElements) {
-        var el = cf('a')
+        var el = mhe.cf('a')
         el.classList.add("list-group-item", "list-group-item-action", elType + "-box-el")
         el.setAttribute("href", "#")
         el.setAttribute("data-bs-toggle", "list");
@@ -667,7 +695,7 @@ function populateCellDropdown(elType, elementList) {
 
     }
 
-    ge(elType + "-box").appendChild(cellBox)
+    mhe.ge(elType + "-box").appendChild(cellBox)
     return cellBox
 }
 
@@ -675,95 +703,95 @@ function populateCellDropdown(elType, elementList) {
 function createCellSelectionBox() {
 
     // Glomeruli box
-    let glomBox = cf('div')
+    let glomBox = mhe.cf('div')
     glomBox.id = "glom-box"
     glomBox.classList.add("glom-box")
 
-    let glomBoxTitle = cf('h5')
+    let glomBoxTitle = mhe.cf('h5')
     glomBoxTitle.innerHTML = "Glomeruli"
     glomBoxTitle.classList.add('group-title')
     glomBox.appendChild(glomBoxTitle)
 
     // Mitral Cells box
-    let mitrBox = cf('div')
+    let mitrBox = mhe.cf('div')
     mitrBox.id = "mitr-box"
     mitrBox.classList.add("mitr-box")
 
-    let mitrBoxTitle = cf('h5')
+    let mitrBoxTitle = mhe.cf('h5')
     mitrBoxTitle.innerHTML = "Mitral Cells"
     mitrBoxTitle.classList.add('group-title')
     mitrBox.appendChild(mitrBoxTitle)
 
     // Tuft Cells box
-    let tuftBox = cf('div')
+    let tuftBox = mhe.cf('div')
     tuftBox.id = "tuft-box"
     tuftBox.classList.add("tuft-box")
 
-    let tuftBoxTitle = cf('h5')
+    let tuftBoxTitle = mhe.cf('h5')
     tuftBoxTitle.innerHTML = "Tufted Cells"
     tuftBoxTitle.classList.add('group-title')
     tuftBox.appendChild(tuftBoxTitle)
 
     //
-    let listGroupsBox = cf('div')
+    let listGroupsBox = mhe.cf('div')
     listGroupsBox.classList.add('row')
 
-    let glomListBox = cf('div')
+    let glomListBox = mhe.cf('div')
     glomListBox.classList.add('col')
 
-    let mitrListBox = cf('div')
+    let mitrListBox = mhe.cf('div')
     mitrListBox.classList.add('col')
 
-    let tuftListBox = cf('div')
+    let tuftListBox = mhe.cf('div')
     tuftListBox.classList.add('col')
 
-    let boxButtons = cf('div')
+    let boxButtons = mhe.cf('div')
     boxButtons.classList.add('cell-box-btn')
 
     // Select All Mitral Button
-    let selMitralBtn = cf('button')
+    let selMitralBtn = mhe.cf('button')
     selMitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "sel-des")
     selMitralBtn.innerHTML = "Select All"
     selMitralBtn.id = "sel-mitral-btn"
     selMitralBtn.addEventListener("click", selectDeselectAll)
 
     // Deselect All Mitral Button
-    let desMitralBtn = cf('button')
+    let desMitralBtn = mhe.cf('button')
     desMitralBtn.classList.add("btn", "btn-secondary", "cell-btn", "sel-des")
     desMitralBtn.innerHTML = "Deselect All"
     desMitralBtn.id = "des-mitral-btn"
     desMitralBtn.addEventListener("click", selectDeselectAll)
 
     // Add Mitral Button
-    let addMitralBtn = cf('button')
+    let addMitralBtn = mhe.cf('button')
     addMitralBtn.classList.add("btn", "btn-secondary", "cell-btn")
     addMitralBtn.innerHTML = "Add Cell(s)"
     addMitralBtn.id = "add-mitral-btn"
     addMitralBtn.addEventListener("click", plotCell)
 
     // Remove Mitral Button
-    let removeMitralBtn = cf('button')
+    let removeMitralBtn = mhe.cf('button')
     removeMitralBtn.classList.add("btn", "btn-secondary", "cell-btn")
     removeMitralBtn.innerHTML = "Remove Cell(s)"
     removeMitralBtn.id = "remove-mitral-btn"
     removeMitralBtn.addEventListener("click", removeCell)
 
     // Inh Mitral Button
-    let inhMitralBtn = cf('button')
+    let inhMitralBtn = mhe.cf('button')
     inhMitralBtn.classList.add("btn", "btn-secondary", "cell-btn")
     inhMitralBtn.innerHTML = "Inhib. weights"
     inhMitralBtn.id = "inh-mitral-btn"
     inhMitralBtn.addEventListener("click", showWeights)
 
     // Exc Mitral Button
-    let excMitralBtn = cf('button')
+    let excMitralBtn = mhe.cf('button')
     excMitralBtn.classList.add("btn", "btn-secondary", "cell-btn")
     excMitralBtn.innerHTML = "Excit. weights"
     excMitralBtn.id = "exc-mitral-btn"
     excMitralBtn.addEventListener("click", showWeights)
 
     // Clear Weights Mitral Button
-    let clrMitralBtn = cf('button')
+    let clrMitralBtn = mhe.cf('button')
     clrMitralBtn.classList.add("btn", "btn-secondary", "cell-btn")
     clrMitralBtn.innerHTML = "Clear weights"
     clrMitralBtn.id = "clr-mitral-btn"
@@ -771,14 +799,14 @@ function createCellSelectionBox() {
 
 
     // Select All Tufted Button
-    let selTuftedBtn = cf('button')
+    let selTuftedBtn = mhe.cf('button')
     selTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn", "sel-des")
     selTuftedBtn.innerHTML = "Select All"
     selTuftedBtn.id = "sel-tufted-btn"
     selTuftedBtn.addEventListener("click", selectDeselectAll)
 
     // Deselect All Tufted Button
-    let desTuftedBtn = cf('button')
+    let desTuftedBtn = mhe.cf('button')
     desTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn", "sel-des")
     desTuftedBtn.innerHTML = "Deselect All"
     desTuftedBtn.id = "des-tufted-btn"
@@ -786,56 +814,56 @@ function createCellSelectionBox() {
 
 
     // Add Tufted Button
-    let addTuftedBtn = cf('button')
+    let addTuftedBtn = mhe.cf('button')
     addTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn")
     addTuftedBtn.innerHTML = "Add Cell(s)"
     addTuftedBtn.id = "add-tufted-btn"
     addTuftedBtn.addEventListener("click", plotCell)
 
     // Remove Tufted Button
-    let removeTuftedBtn = cf('button')
+    let removeTuftedBtn = mhe.cf('button')
     removeTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn")
     removeTuftedBtn.innerHTML = "Remove Cell(s)"
     removeTuftedBtn.id = "remove-tufted-btn"
     removeTuftedBtn.addEventListener("click", removeCell)
 
     // Inh Tufted Button
-    let inhTuftedBtn = cf('button')
+    let inhTuftedBtn = mhe.cf('button')
     inhTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn")
     inhTuftedBtn.innerHTML = "Inhib. weights"
     inhTuftedBtn.id = "inh-tufted-btn"
     inhTuftedBtn.addEventListener("click", showWeights)
 
     // Exc Tufted Button
-    let excTuftedBtn = cf('button')
+    let excTuftedBtn = mhe.cf('button')
     excTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn")
     excTuftedBtn.innerHTML = "Excit. weights"
     excTuftedBtn.id = "exc-tufted-btn"
     excTuftedBtn.addEventListener("click", showWeights)
 
     // Clear Weights Tufted Button
-    let clrTuftedBtn = cf('button')
+    let clrTuftedBtn = mhe.cf('button')
     clrTuftedBtn.classList.add("btn", "btn-secondary", "cell-btn")
     clrTuftedBtn.innerHTML = "Clear weights"
     clrTuftedBtn.id = "clr-mitral-btn"
     clrTuftedBtn.addEventListener("click", showWeights)
 
     //
-    let cleanMCBtn = cf('button')
+    let cleanMCBtn = mhe.cf('button')
     cleanMCBtn.classList.add("btn", "btn-secondary", "cell-btn")
     cleanMCBtn.innerHTML = "Remove All Mitral Cells"
     cleanMCBtn.id = "clean-mc-btn"
     cleanMCBtn.addEventListener("click", cleanCanvas)
 
     //
-    let cleanTMCBtn = cf('button')
+    let cleanTMCBtn = mhe.cf('button')
     cleanTMCBtn.classList.add("btn", "btn-secondary", "cell-btn")
     cleanTMCBtn.innerHTML = "Remove All Tufted Cells"
     cleanTMCBtn.id = "clean-tmc-btn"
     cleanTMCBtn.addEventListener("click", cleanCanvas)
 
     //
-    let cleanGrCBtn = cf('button')
+    let cleanGrCBtn = mhe.cf('button')
     cleanGrCBtn.classList.add("btn", "btn-secondary", "cell-btn")
     cleanGrCBtn.innerHTML = "Remove All Granule Cells"
     cleanGrCBtn.id = "clean-grc-btn"
@@ -874,53 +902,66 @@ function createCellSelectionBox() {
     listGroupsBox.appendChild(mitrListBox)
     listGroupsBox.appendChild(tuftListBox)
 
-    ge("explorer-body").appendChild(listGroupsBox)
-    ge("explorer-body").appendChild(boxButtons)
+    mhe.ge("explorer-body").appendChild(listGroupsBox)
+    mhe.ge("explorer-body").appendChild(boxButtons)
 }
 
 
 // Create the DOM elements
 function buildDOM() {
 
-    let page = cf('div')
+    let page = mhe.cf('div')
     page.classList.add('container-fluid', 'page-container')
     page.id = "page"
 
     /*  Top banner  */
-    let banner = cf('div')
-    banner.classList.add('banner', 'row')
+    let banner = mhe.cf('div')
+    banner.classList.add('banner', 'row', 'd-flex', 'align-items-center')
     banner.id = "banner"
 
-    let bannerLogo = cf('div')
-    bannerLogo.classList.add('col',)
+    let bannerLogo = mhe.cf('div')
+    bannerLogo.classList.add('col', 'banner-element', 'align-left')
 
-    let bannerLogoLink = cf('a')
+    let bannerLogoLink = mhe.cf('a')
     bannerLogoLink.setAttribute('href', 'https://ebrains.eu/')
     bannerLogoLink.setAttribute('target', '_blank')
 
+
     let bannerLogoImg = new Image()
     bannerLogoImg.src = EBRAINS_logo
-    bannerLogoImg.height = 34;
+    bannerLogoImg.height = 32;
 
     bannerLogoLink.appendChild(bannerLogoImg)
     bannerLogo.appendChild(bannerLogoLink)
 
-    let b_title = cf('div')
+    let b_title = mhe.cf('div')
     b_title.classList.add('col-6', 'banner-element', 'title')
 
-    let b_links = cf('div')
-    b_links.classList.add('col', 'banner-element')
+    let bannerInfo = mhe.cf('div')
+    bannerInfo.classList.add('col', 'banner-element', 'align-right')
+
+    let bannerInfoLink = mhe.cf('a')
+    bannerInfoLink.setAttribute('type', 'button')
+    bannerInfoLink.setAttribute('data-bs-toggle', 'modal')
+    bannerInfoLink.setAttribute('data-bs-target', '#guidebook-modal')
+
+    let bannerInfoImg = new Image()
+    bannerInfoImg.src = infoLogo
+    bannerInfoImg.height = 18
+
+    bannerInfoLink.appendChild(bannerInfoImg)
+    bannerInfo.appendChild(bannerInfoLink)
 
     // visualizer container
-    let visualizer = cf('div')
+    let visualizer = mhe.cf('div')
     visualizer.classList.add('row')
 
-    let v_params = cf('div')
+    let v_params = mhe.cf('div')
     v_params.classList.add('col', 'params')
     v_params.id = "params"
 
     // accordion
-    let v_accordion = cf('div')
+    let v_accordion = mhe.cf('div')
     v_accordion.id = "action-accordion"
     v_accordion.classList.add('accordion')
 
@@ -942,18 +983,21 @@ function buildDOM() {
     v_accordion.appendChild(fetch_item)
 
     //
-    let v_canvas_div = cf('div')
+    let v_canvas_div = mhe.cf('div')
     v_canvas_div.classList.add('col-9', "canvas-container")
 
-    let v_canvas = cf('canvas')
+    let v_canvas = mhe.cf('canvas')
     v_canvas.id = "v_canvas"
     v_canvas.classList.add('webgl')
 
     v_canvas_div.appendChild(v_canvas)
 
+    let guidebookModal = obmod.createGuidebookModal("guidebook-modal", "guidebook-modal-title")
+    let waitingModal = obmod.createWaitingModal("waiting-modal", "waiting-modal-title", "waiting-modal-msg")
+
     banner.appendChild(bannerLogo)
     banner.appendChild(b_title)
-    banner.appendChild(b_links)
+    banner.appendChild(bannerInfo)
 
     v_params.appendChild(v_accordion)
     visualizer.appendChild(v_params)
@@ -961,10 +1005,14 @@ function buildDOM() {
     visualizer.appendChild(v_canvas_div)
 
     page.appendChild(banner)
+    page.appendChild(guidebookModal)
+    page.appendChild(waitingModal)
     page.appendChild(visualizer)
 
+
+
     b_title.innerHTML = "OLFACTORY BULB EXPLORER"
-    b_links.innerHTML = "links"
+
 
     document.body.appendChild(page)
 
@@ -972,6 +1020,7 @@ function buildDOM() {
     createCellSelectionBox()
     populateSubmitPanel()
     populateFetchPanel()
+
 
 
     return;
@@ -987,62 +1036,59 @@ function fetchSim() {
 
 function populateFetchPanel() {
     // job list title
-    let jobListTitle = cf("h5")
+    let jobListTitle = mhe.cf("h5")
     jobListTitle.innerHTML = "JOB LIST"
     jobListTitle.classList.add("list-title")
 
     // create group item for job listing
-    let jobList = cf("div")
+    let jobList = mhe.cf("div")
     jobList.classList.add("list-group")
     // create dummy element
-    let el = cf('a')
+    let el = mhe.cf('a')
     el.classList.add("list-group-item", "list-group-item-action", "list-group-item-light", "job-box-el")
     el.setAttribute("href", "#")
     el.innerHTML = "--"
     jobList.appendChild(el)
 
     // check simulations button
-    let checkSimBtn = cf("button")
+    let checkSimBtn = mhe.cf("button")
     checkSimBtn.id = "check-sim-btn"
     checkSimBtn.innerHTML = "CHECK SIMULATION STATUS"
     checkSimBtn.classList.add("run-hpc-btn")
     checkSimBtn.addEventListener("click", checkSimStatus)
 
     // fetch simulation button
-    let fetchSimBtn = cf("button")
+    let fetchSimBtn = mhe.cf("button")
     fetchSimBtn.id = "check-sim-btn"
     fetchSimBtn.innerHTML = "FETCH SIMULATION"
     fetchSimBtn.classList.add("run-hpc-btn")
     fetchSimBtn.addEventListener("click", fetchSim)
 
     // 
-    ge("fetch-body").appendChild(jobListTitle)
-    ge("fetch-body").appendChild(jobList)
-    ge("fetch-body").appendChild(checkSimBtn)
-    ge("fetch-body").appendChild(fetchSimBtn)
-
-
-
+    mhe.ge("fetch-body").appendChild(jobListTitle)
+    mhe.ge("fetch-body").appendChild(jobList)
+    mhe.ge("fetch-body").appendChild(checkSimBtn)
+    mhe.ge("fetch-body").appendChild(fetchSimBtn)
 }
 
 // Insert DOM elements in the RUN SIMULATION panel
 function populateSubmitPanel() {
 
     // Sniffing interval input
-    let sniffDiv = cf("div")
+    let sniffDiv = mhe.cf("div")
     sniffDiv.id = "sniff-div"
     sniffDiv.classList.add("input-group", "mb-3")
 
-    let sniffSpanDiv = cf("div")
+    let sniffSpanDiv = mhe.cf("div")
     sniffSpanDiv.classList.add("input-group-prepend")
     sniffSpanDiv.id = "sniff-span-div"
 
-    let sniffSpan = cf("span")
+    let sniffSpan = mhe.cf("span")
     sniffSpan.classList.add("input-group-text", "span-param")
     sniffSpan.id = "sniff-span"
     sniffSpan.innerHTML = "Set Sniffing Interval (ms)"
 
-    let sniffInput = cf("input")
+    let sniffInput = mhe.cf("input")
     sniffInput.id = "sniff-input"
     sniffInput.setAttribute("type", "text")
     sniffInput.setAttribute("aria-label", "Default")
@@ -1054,20 +1100,20 @@ function populateSubmitPanel() {
     sniffDiv.appendChild(sniffInput)
 
     // Simulation duration input
-    let durDiv = cf("div")
+    let durDiv = mhe.cf("div")
     durDiv.id = "dur-div"
     durDiv.classList.add("input-group", "mb-3")
 
-    let durSpanDiv = cf("div")
+    let durSpanDiv = mhe.cf("div")
     durSpanDiv.classList.add("input-group-prepend")
     durSpanDiv.id = "dur-span-div"
 
-    let durSpan = cf("span")
+    let durSpan = mhe.cf("span")
     durSpan.classList.add("input-group-text", "span-param")
     durSpan.id = "dur-span"
     durSpan.innerHTML = "Set Simulation time  (ms)"
 
-    let durInput = cf("input")
+    let durInput = mhe.cf("input")
     durInput.id = "dur-input"
     durInput.setAttribute("type", "text")
     durInput.setAttribute("aria-label", "Default")
@@ -1080,7 +1126,7 @@ function populateSubmitPanel() {
 
 
     // Run simulatioin button
-    let runSimBtn = cf("button")
+    let runSimBtn = mhe.cf("button")
     runSimBtn.id = "run-sim-btn"
     runSimBtn.innerHTML = "RUN"
     runSimBtn.classList.add("run-hpc-btn")
@@ -1091,21 +1137,21 @@ function populateSubmitPanel() {
     let odorsList = ["Apple", "Banana", "Basil", "Black_Pepper", "Cheese", "Chocolate", "Cinnamon", "Cloves",
         "Coffee", "Garlic", "Ginger", "Lemongrass", "Kiwi", "Mint", "Onion", "Oregano", "Pear", "Pineapple", "Strawberry"]
 
-    let odorsTitle = cf("h5")
+    let odorsTitle = mhe.cf("h5")
     odorsTitle.innerHTML = "SELECT ODORS"
     odorsTitle.classList.add("list-title")
 
-    let odorsContainer = cf("div")
+    let odorsContainer = mhe.cf("div")
     odorsContainer.classList.add("container", "odor-container")
 
-    let odorsRow = cf("div")
+    let odorsRow = mhe.cf("div")
     odorsRow.classList.add("row")
 
     for (let o of odorsList) {
-        let odorCol = cf("div")
+        let odorCol = mhe.cf("div")
         odorCol.classList.add("col", "odor-col")
 
-        let odorBtn = cf("button")
+        let odorBtn = mhe.cf("button")
         odorBtn.id = o
         odorBtn.innerHTML = o
         odorBtn.classList.add("odor-btn")
@@ -1117,27 +1163,27 @@ function populateSubmitPanel() {
     }
 
     // Insert title for the glomerulus selection panel
-    let simGlomTitle = cf("h5")
+    let simGlomTitle = mhe.cf("h5")
     simGlomTitle.innerHTML = "SELECT GLOMERULI"
     simGlomTitle.classList.add("list-title")
 
     // Insert buttons for batch selections of glomeruli
-    let selBtnContainer = cf("div")
+    let selBtnContainer = mhe.cf("div")
     selBtnContainer.classList.add("row", "sel-glom-btn-row")
 
-    let selAllGlomBtn = cf("button")
+    let selAllGlomBtn = mhe.cf("button")
     selAllGlomBtn.id = "sel-all-gloms"
     selAllGlomBtn.classList.add("col")
     selAllGlomBtn.innerHTML = "Select All"
     selAllGlomBtn.addEventListener("click", selGloms)
 
-    let desAllGlomBtn = cf("button")
+    let desAllGlomBtn = mhe.cf("button")
     desAllGlomBtn.id = "des-all-gloms"
     desAllGlomBtn.classList.add("col")
     desAllGlomBtn.innerHTML = "Deselect All"
     desAllGlomBtn.addEventListener("click", selGloms)
 
-    let invAllGlomBtn = cf("button")
+    let invAllGlomBtn = mhe.cf("button")
     invAllGlomBtn.id = "inv-all-gloms"
     invAllGlomBtn.classList.add("col")
     invAllGlomBtn.innerHTML = "Invert Selection"
@@ -1148,14 +1194,14 @@ function populateSubmitPanel() {
     selBtnContainer.appendChild(invAllGlomBtn)
 
 
-    let simGlomRow = cf("div")
+    let simGlomRow = mhe.cf("div")
     simGlomRow.classList.add("row")
 
     for (let glom of glomeruliLimits) {
-        let glomCol = cf("div")
+        let glomCol = mhe.cf("div")
         glomCol.classList.add("col", "glom-col")
 
-        let glomBtn = cf("button")
+        let glomBtn = mhe.cf("button")
         glomBtn.id = "gsim_" + glom.toString()
         glomBtn.innerHTML = glom.toString()
         glomBtn.classList.add("glom-btn")
@@ -1169,7 +1215,7 @@ function populateSubmitPanel() {
 
     // create color map
 
-    let colorMapImg = cf("img")
+    let colorMapImg = mhe.cf("img")
     colorMapImg.classList.add("img-fluid", "colormap-img")
     colorMapImg.setAttribute("src", colorMap)
 
@@ -1181,11 +1227,11 @@ function populateSubmitPanel() {
     odorsContainer.appendChild(colorMapImg)
     odorsContainer.appendChild(selBtnContainer)
 
-    ge("submit-body").appendChild(odorsContainer)
-    ge("submit-body").appendChild(sniffDiv)
-    ge("submit-body").appendChild(durDiv)
+    mhe.ge("submit-body").appendChild(odorsContainer)
+    mhe.ge("submit-body").appendChild(sniffDiv)
+    mhe.ge("submit-body").appendChild(durDiv)
 
-    ge("submit-body").appendChild(runSimBtn)
+    mhe.ge("submit-body").appendChild(runSimBtn)
 }
 
 
@@ -1195,8 +1241,8 @@ function resize() {
     var win_h = window.innerHeight;
     var win_w = window.innerWidth;
 
-    let out_width = ge("params").clientWidth
-    let out_height = ge("banner").clientHeight
+    let out_width = mhe.ge("params").clientWidth
+    let out_height = mhe.ge("banner").clientHeight
 
     sizes.height = win_h - out_height - 7;
     sizes.width = win_w - out_width - 20;
@@ -1215,14 +1261,14 @@ function resize() {
 function createAccordionItem(header_id, collapse_id, button_content,
     accordion_id, item_content, content_classes, button_classes, body_id) {
 
-    let item = cf('div')
+    let item = mhe.cf('div')
     item.classList.add("accordion-item")
 
-    let header = cf('div')
+    let header = mhe.cf('div')
     header.classList.add("accordion-header")
     header.id = header_id
 
-    let button = cf('button')
+    let button = mhe.cf('button')
     button.classList.add("accordion-button")
     for (let i = 0; i < button_classes.length; i++) {
         button.classList.add(button_classes[i])
@@ -1234,7 +1280,7 @@ function createAccordionItem(header_id, collapse_id, button_content,
     button.setAttribute("aria-controls", collapse_id)
     button.innerHTML = button_content
 
-    let content = cf('div')
+    let content = mhe.cf('div')
     content.id = collapse_id
     content.classList.add("accordion-collapse")
     for (let i = 0; i < content_classes.length; i++) {
@@ -1243,7 +1289,7 @@ function createAccordionItem(header_id, collapse_id, button_content,
     content.setAttribute("aria-labelledby", header_id)
     content.setAttribute("data-bs-parent", "#" + accordion_id)
 
-    let body = cf('div')
+    let body = mhe.cf('div')
     body.classList.add("accordion-body")
     body.id = body_id
     body.innerHTML = item_content
@@ -1351,11 +1397,9 @@ function plotGlomeruli(data, simGloms) {
     return glom_list
 }
 
-
-
-
 // Add cell to canvas
 function addCell(data, cell) {
+
     let allCellMeshes = []
     let keys = Object.keys(data["secs"])
 
@@ -1377,7 +1421,7 @@ function addCell(data, cell) {
 
 function selectDeselectAll() {
     if (this.id == "sel-mitral-btn") {
-        let allEls = gecn("mitr-box-el")
+        let allEls = mhe.gecn("mitr-box-el")
         for (let elIdx = 0; elIdx < allEls.length; elIdx++) {
             if (allEls[elIdx].innerText == "--") {
                 allEls[elIdx].classList.remove("active");
@@ -1386,12 +1430,12 @@ function selectDeselectAll() {
             }
         }
     } else if (this.id == "des-mitral-btn") {
-        let allEls = gecn("mitr-box-el")
+        let allEls = mhe.gecn("mitr-box-el")
         for (let elIdx = 0; elIdx < allEls.length; elIdx++) {
             allEls[elIdx].classList.remove("active");
         }
     } else if (this.id == "sel-tufted-btn") {
-        let allEls = gecn("tuft-box-el")
+        let allEls = mhe.gecn("tuft-box-el")
         for (let elIdx = 0; elIdx < allEls.length; elIdx++) {
             if (allEls[elIdx].innerText == "--") {
                 allEls[elIdx].classList.remove("active");
@@ -1401,24 +1445,9 @@ function selectDeselectAll() {
         }
 
     } else if (this.id == "des-tufted-btn") {
-        let allEls = gecn("tuft-box-el")
+        let allEls = mhe.gecn("tuft-box-el")
         for (let elIdx = 0; elIdx < allEls.length; elIdx++) {
             allEls[elIdx].classList.remove("active");
         }
     }
-}
-
-// create element function
-function cf(type) {
-    return document.createElement(type)
-}
-
-// select element function
-function ge(id) {
-    return document.getElementById(id)
-}
-
-// get element by class name
-function gecn(classes) {
-    return document.getElementsByClassName(classes)
 }
