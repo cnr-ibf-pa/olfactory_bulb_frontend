@@ -271,3 +271,14 @@ body {
 .modal-footer {
     background-color: white;
 }
+
+#sim-id {
+    text-align: left;
+    background-color: antiquewhite;
+    color: black;
+    padding: 2px !important;
+    margin-top: 7px !important;
+    margin-bottom: 7px !important;
+    font-size: 14px !important;
+    font-weight: bolder;
+}
