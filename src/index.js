@@ -174,7 +174,7 @@ function getSimulationData(origin, jobTitle = "") {
     demoUrl = "https://corsproxy.hbpneuromorphic.eu/https://object.cscs.ch:443/v1/AUTH_c0a333ecf7c045809321ce9d9ecdfdea/web-resources-bsp/data/olfactory-bulb/demo_sim/"
 
     if (origin == "") {
-        url = mhe.demoUrl
+        url = demoUrl
         mhe.ge("sim-id").innerHTML = "Sim title: DEMO"
     } else {
         mhe.ge("sim-id").innerHTML = "Sim title: " + jobTitle
