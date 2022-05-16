@@ -83,7 +83,14 @@ let odorValues
 
 let visDelay = 500
 
-// ========================== AUTHENTICATION ======================================00 
+
+let access_token
+let OIDC_OP_USER_ENDPOINT = "https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/userinfo"
+let SA_DAINT_JOB_URL = 'https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/'
+let SA_DAINT_FILE_URL = 'https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/'
+
+
+// ========================== AUTHENTICATION ====================================== 
 import * as m_oidc from './handlers/auth.js';
 
 var user_json = window.sessionStorage.getItem('user'); // check if user is already logged in
@@ -95,15 +102,11 @@ if (!user_json) {
 }
 console.log(user.id_token); // fetch token
 console.log(user.profile.preferred_username); // fetch username
+console.log(user)
+access_token = user.id_token
 
 // ==================================================================================
 
-const listeners = {
-    "glom": { "click": selectGlom, "mouseover": highlightElement, "mouseleave": restoreColor },
-    //"mitr": { "click": , "mouseover": , "mouseleave": },
-    //"tuft": { "click": , "mouseover": , "mouseleave": },
-
-}
 // Build the page DOM
 window.onload = buildDOM();
 var actualSizes = get_canvas_dimensions()
@@ -160,23 +163,21 @@ resize()
 animate()
 getSimulationData("")
 
-
-
-
-
 //getSimulatedCellIds()
 //createGUI()
 
 
-function getSimulationData(origin) {
+function getSimulationData(origin, jobTitle = "") {
     waitingBootModal.show()
 
     let url, demoUrl
     demoUrl = "https://corsproxy.hbpneuromorphic.eu/https://object.cscs.ch:443/v1/AUTH_c0a333ecf7c045809321ce9d9ecdfdea/web-resources-bsp/data/olfactory-bulb/demo_sim/"
 
     if (origin == "") {
-        url = demoUrl
+        url = mhe.demoUrl
+        mhe.ge("sim-id").innerHTML = "Sim title: DEMO"
     } else {
+        mhe.ge("sim-id").innerHTML = "Sim title: " + jobTitle
         url = origin
     }
     obmod.setModalMessage("waiting-modal-msg", "Loading glomeruli positions ...")
@@ -702,6 +703,10 @@ function populateCellDropdown(elType, elementList) {
 //
 function createCellSelectionBox() {
 
+    let simId = mhe.cf("div")
+    simId.id = "sim-id"
+    simId.innerHTML = "Sim ID: DEMO"
+
     // Glomeruli box
     let glomBox = mhe.cf('div')
     glomBox.id = "glom-box"
@@ -873,6 +878,8 @@ function createCellSelectionBox() {
     boxButtons.appendChild(cleanTMCBtn)
     //boxButtons.appendChild(cleanGrCBtn)
 
+    
+    
     // Insert list of Glomeruli
     glomListBox.appendChild(glomBox)
 
@@ -902,6 +909,10 @@ function createCellSelectionBox() {
     listGroupsBox.appendChild(mitrListBox)
     listGroupsBox.appendChild(tuftListBox)
 
+
+    // Insert Simulation Id
+
+    mhe.ge("explorer-body").appendChild(simId)
     mhe.ge("explorer-body").appendChild(listGroupsBox)
     mhe.ge("explorer-body").appendChild(boxButtons)
 }
@@ -1027,7 +1038,14 @@ function buildDOM() {
 }
 
 function checkSimStatus() {
+    console.log(access_token)
+    let headers2 = { 'Authorization': 'Bearer ' + access_token }
 
+    axios.get(SA_DAINT_JOB_URL, {
+        headers: {
+            "Authorization": 'Bearer ' + access_token //the token is a variable which holds the token
+        }
+    })
 }
 
 function fetchSim() {
