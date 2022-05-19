@@ -103,6 +103,9 @@ let localRedirUrl
 if (window.location.href.includes("localhost")) {
     localClientId = 'localhost-test-2'
     localRedirUrl = 'http://localhost:8080/callback.html'
+} else {
+    localClientId = 'llb-olfactory-bulb'
+    localRedirUrl = 'https://olfactory-bulb.cineca.it/callback.html'
 }
 
 import * as m_oidc from './handlers/auth.js';
