@@ -5,6 +5,7 @@
 
 OIDC_CLIENT_TEST.json
 
+dist
 # User-specific files
 *.rsuser
 *.suo
