@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/cnr-ibf-pa/olfactory_bulb_frontend#readme",
   "dependencies": {
+    "@popperjs/core": "^2.11.5",
     "autoprefixer": "^10.4.4",
     "axios": "^0.26.1",
     "babel-polyfill": "^6.26.0",
