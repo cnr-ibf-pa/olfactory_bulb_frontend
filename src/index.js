@@ -2,12 +2,14 @@ import _, { remove } from 'lodash'
 import './style.css'
 import 'jquery'
 
+import * as tinygradient from 'tinygradient'
+
 //import 'bootstrap'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import { Modal } from 'bootstrap'
 
 import { GUI } from 'dat.gui'
-import colorGradient from "javascript-color-gradient"
+import { Gradient } from "javascript-color-gradient"
 
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
@@ -41,6 +43,7 @@ medial tufted: [635-1904]
 granule: [1905-390516]
 blanes: [390517-390898]
 */
+
 
 const glomeruliLimits = _.range(0, 127)
 const mcLimits = _.range(0, 635)
@@ -88,22 +91,32 @@ let access_token
 let OIDC_OP_USER_ENDPOINT = "https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/userinfo"
 let SA_DAINT_JOB_URL = 'https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/'
 let SA_DAINT_FILE_URL = 'https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/'
+let redirect_url
 
 
 // ========================== AUTHENTICATION ====================================== 
+
+
+const redirectBase = window.location.href;
+let localClientId
+let localRedirUrl
+if (window.location.href.includes("localhost")) {
+    localClientId = 'localhost-test-2'
+    localRedirUrl = 'http://localhost:8080/callback.html'
+}
+
 import * as m_oidc from './handlers/auth.js';
 
 var user_json = window.sessionStorage.getItem('user'); // check if user is already logged in
 
 if (!user_json) {
-    m_oidc.init(); // run login
+    m_oidc.init(localClientId, localRedirUrl); // run login
 } else {
     var user = JSON.parse(user_json); // parse user json
 }
-console.log(user.id_token); // fetch token
 console.log(user.profile.preferred_username); // fetch username
 console.log(user)
-access_token = user.id_token
+access_token = user.access_token
 
 // ==================================================================================
 
@@ -163,7 +176,6 @@ resize()
 animate()
 getSimulationData("")
 
-//getSimulatedCellIds()
 //createGUI()
 
 
@@ -243,10 +255,19 @@ function setColorThreeArray(color1, color2, numColors, maxColorIdx) {
 }
 
 function setColorArray(color1, color2, numColors) {
-    let colorGradientArray = colorGradient
-        .setGradient(color1, color2)
+    /*
+    const colorGradientArray = new Gradient()
+        .setColorGradient(color1, color2)
         .setMidpoint(numColors)
-        .getArray()
+        .getColors();
+        */
+
+    var gradient = tinygradient([
+        { color: color1 },
+        { color: color2},
+    ]);
+
+    var colorGradientArray = gradient.rgb(numColors);
     return colorGradientArray
 }
 
@@ -1038,12 +1059,9 @@ function buildDOM() {
 }
 
 function checkSimStatus() {
-    console.log(access_token)
-    let headers2 = { 'Authorization': 'Bearer ' + access_token }
-
     axios.get(SA_DAINT_JOB_URL, {
         headers: {
-            "Authorization": 'Bearer ' + access_token //the token is a variable which holds the token
+            "Authorization": 'Bearer ' + access_token
         }
     })
 }

@@ -3,17 +3,18 @@ import  Oidc from 'oidc-client';
 // comes from rollup.config.js
 // declare var processEnvs: any
 
-function createAuthConfig() {
-  const redirectBase = window.location.origin;
+function createAuthConfig(clientId, redirUrl) {
+
   const settings = {
     authority: 'https://iam.ebrains.eu/auth/realms/hbp',
     authorization_endpoint: 'https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/auth', 
     userinfo_endpoint: 'https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/userinfo',
-    client_id: 'localhost-test-2',
-    redirect_uri: 'http://localhost:8080/callback.html',
-    scope: 'openid profile email',
-    
-    respose_type: 'id_token token',
+    //client_id: 'localhost-test-2',
+    //redirect_uri: 'http://localhost:8080/callback.html',
+      client_id: clientId,
+      redirect_uri: redirUrl,
+    scope: 'openid profile email',    
+    response_type: 'id_token token',
     userStore: new Oidc.WebStorageStateStore({ store : window.localStorage }),
   }
   return settings;
@@ -25,23 +26,25 @@ async function login(authMgr) {
 }
 
 async function loginSilent() {
-  const authMgr = createAuthManager();
+    const authMgr = createAuthManager(clientId, redirUrl);
   await authMgr.signinSilent();
 }
 
-function createAuthManager() {
-  const oidcConfig = createAuthConfig();
+function createAuthManager(clientId, redirUrl) {
+    const oidcConfig = createAuthConfig(clientId, redirUrl);
   const authMgr = new Oidc.UserManager(oidcConfig);
   return authMgr;
 }
 
-function init() {
-  const authMgr = createAuthManager();
+function init(clientId, redirUrl) {
+  clientId = clientId
+  redirUrl = redirUrl
+    const authMgr = createAuthManager(clientId, redirUrl);
   return login(authMgr);
 }
 
 async function getUserInfo() {
-  const authMgr = createAuthManager();
+    const authMgr = createAuthManager(clientId, redirUrl);
   const user = await authMgr.getUser();
   return user;
 }
