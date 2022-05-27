@@ -25,8 +25,8 @@ async function login(authMgr) {
   return authMgr.signinRedirect();
 }
 
-async function loginSilent() {
-    const authMgr = createAuthManager(clientId, redirUrl);
+async function loginSilent(clientId, redirUrl) {
+  const authMgr = createAuthManager(clientId, redirUrl);
   await authMgr.signinSilent();
 }
 
@@ -41,6 +41,7 @@ function init(clientId, redirUrl) {
   redirUrl = redirUrl
     const authMgr = createAuthManager(clientId, redirUrl);
   return login(authMgr);
+  //  return loginSilent(authMgr);
 }
 
 async function getUserInfo() {

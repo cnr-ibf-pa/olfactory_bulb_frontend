@@ -2,14 +2,14 @@ import _, { remove } from 'lodash'
 import './style.css'
 import 'jquery'
 
-import * as tinygradient from 'tinygradient'
 
 //import 'bootstrap'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import { Modal } from 'bootstrap'
 
 import { GUI } from 'dat.gui'
-import { Gradient } from "javascript-color-gradient"
+//import { Gradient } from "javascript-color-gradient"
+import Gradient from "javascript-color-gradient"
 
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
@@ -110,16 +110,19 @@ if (window.location.href.includes("localhost")) {
 
 import * as m_oidc from './handlers/auth.js';
 
-var user_json = window.sessionStorage.getItem('user'); // check if user is already logged in
+initializeOidc()
 
-if (!user_json) {
-    m_oidc.init(localClientId, localRedirUrl); // run login
-} else {
-    var user = JSON.parse(user_json); // parse user json
+//
+function initializeOidc() {
+    var user_json = window.sessionStorage.getItem('user'); // check if user is already logged in
+
+    if (!user_json) {
+        m_oidc.init(localClientId, localRedirUrl); // run login
+    } else {
+        var user = JSON.parse(user_json); // parse user json
+    }
+    access_token = user.access_token
 }
-console.log(user.profile.preferred_username); // fetch username
-console.log(user)
-access_token = user.access_token
 
 // ==================================================================================
 
@@ -258,19 +261,12 @@ function setColorThreeArray(color1, color2, numColors, maxColorIdx) {
 }
 
 function setColorArray(color1, color2, numColors) {
-    /*
+    
     const colorGradientArray = new Gradient()
         .setColorGradient(color1, color2)
         .setMidpoint(numColors)
         .getColors();
-        */
 
-    var gradient = tinygradient([
-        { color: color1 },
-        { color: color2},
-    ]);
-
-    var colorGradientArray = gradient.rgb(numColors);
     return colorGradientArray
 }
 
@@ -1044,10 +1040,7 @@ function buildDOM() {
     page.appendChild(waitingModal)
     page.appendChild(visualizer)
 
-
-
     b_title.innerHTML = "OLFACTORY BULB EXPLORER"
-
 
     document.body.appendChild(page)
 
@@ -1062,15 +1055,59 @@ function buildDOM() {
 }
 
 function checkSimStatus() {
+    initializeOidc()
     axios.get(SA_DAINT_JOB_URL, {
         headers: {
             "Authorization": 'Bearer ' + access_token
         }
     })
+        .then(joblist => {
+           
+            let data = joblist["data"]
+            console.log(data)
+            for (let i = 0; i < data.length; i++) {
+                console.log(i)
+
+                let job = data[i]
+                let jobTitle = job["title"]
+                let initDate = job["init_date"]
+                let endDate = job["end_date"]
+                let stage = job["stage"]
+                let jobString = jobTitle + " -- [<strong>info</strong>]"
+                let jobToolTip = jobTitle + "- Job Start: " + initDate + " - Job end: " + endDate
+                let jobListDiv = mhe.ge("job-list-div")
+                let el = createJobListEl(jobString, jobToolTip)
+                jobListDiv.appendChild(el)
+                console.log(jobString)
+
+
+
+            }
+            console.log(joblist)
+        })
 }
 
 function fetchSim() {
 
+}
+
+function createJobListEl(text, tooltip) {
+    let span = mhe.cf("div")
+
+    let el = mhe.cf('a')
+    el.classList.add("list-group-item", "list-group-item-action", "list-group-item-light", "job-box-el")
+    el.setAttribute("href", "#")
+    el.innerHTML = text
+
+    let info = mhe.cf("span")
+    info.setAttribute("data-toggle", "tooltip")
+    info.setAttribute("data-placement", "right")
+    info.setAttribute("title", tooltip)
+
+    span.appendChild(el)
+    span.appendChild(info)
+
+    return span
 }
 
 function populateFetchPanel() {
@@ -1082,11 +1119,10 @@ function populateFetchPanel() {
     // create group item for job listing
     let jobList = mhe.cf("div")
     jobList.classList.add("list-group")
+    jobList.id = "job-list-div"
+
     // create dummy element
-    let el = mhe.cf('a')
-    el.classList.add("list-group-item", "list-group-item-action", "list-group-item-light", "job-box-el")
-    el.setAttribute("href", "#")
-    el.innerHTML = "--"
+    let el = createJobListEl("--", "--")
     jobList.appendChild(el)
 
     // check simulations button
