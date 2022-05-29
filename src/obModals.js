@@ -1,6 +1,6 @@
 const mhe = require('./manageHtmlElements')
 
-module.exports = { createGuidebookModal, createWaitingModal, setModalMessage }
+module.exports = { createGuidebookModal, createWaitingModal, setModalMessage, createMessageModal }
 
 function setModalMessage(modalMessageId, message) {
     mhe.ge(modalMessageId).innerHTML = message
@@ -29,12 +29,6 @@ function createGuidebookModal(modalId, modalTitleId) {
     modalTitle.classList.add("modal-title")
     modalTitle.innerHTML = "OLFACTORY BULB EXPLORER Guidebook"
     modalTitle.id = modalTitleId
-
-    let closeBtn = mhe.cf("button")
-    closeBtn.setAttribute("type", "button")
-    closeBtn.setAttribute("data-mdb-dismiss", "modal")
-    closeBtn.setAttribute("aria-label", "Close")
-    closeBtn.classList.add("btn-close")
 
     let modalBody = mhe.cf("div")
     modalBody.classList.add("modal-body")
@@ -103,13 +97,53 @@ function createWaitingModal(modalId, modalTitleId, modalMessageId) {
     modalContent.classList.add("modal-content")
 
     let modalBody = mhe.cf("div")
-    modalBody.classList.add("modal-body")
+    modalBody.classList.add("modal-body", "waiting")
     modalBody.innerHTML = "<div class='spinner-border text-warning' role='status'></div>\
     <div id=" + modalMessageId + ">Loading model data<br>Please wait ...</div>"
     //
     modalDiv.appendChild(modalDialog)
     modalDiv.appendChild(modalContent)
     modalDiv.appendChild(modalBody)
+
+    return modalDiv
+}
+
+
+//Modal for displaying loading messages
+function createMessageModal(modalId, modalTitleId, modalMessageId) {
+    let modalDiv = mhe.cf("div")
+    modalDiv.id = modalId
+    modalDiv.classList.add("modal", "fade", "waiting-modal")
+    modalDiv.setAttribute("data-bs-backdrop", "static")
+    modalDiv.setAttribute("data-bs-keyboard", "false")
+    modalDiv.setAttribute("tabindex", "-1")
+    modalDiv.setAttribute("aria-labelledby", modalTitleId)
+    modalDiv.setAttribute("aria-hidden", "true")
+
+    let modalDialog = mhe.cf("div")
+    modalDialog.classList.add("modal-dialog")
+
+    let modalContent = mhe.cf("div")
+    modalContent.classList.add("modal-content")
+
+    let modalBody = mhe.cf("div")
+    modalBody.classList.add("modal-body", "message")
+    modalBody.innerHTML = "<div id=" + modalMessageId + "></div>"
+
+    let modalFooter = mhe.cf("div")
+    modalFooter.classList.add("modal-footer")
+
+    let modalFooterBtn = mhe.cf("button")
+    modalFooterBtn.classList.add("btn", "btn-secondary")
+    modalFooterBtn.setAttribute("data-bs-dismiss", "modal")
+    modalFooterBtn.innerHTML = "Close"
+
+    //
+    modalDiv.appendChild(modalDialog)
+    modalDiv.appendChild(modalContent)
+    modalDiv.appendChild(modalBody)
+    modalDiv.appendChild(modalFooter)
+    modalFooter.appendChild(modalFooterBtn)
 
     return modalDiv
 }

@@ -1,4 +1,4 @@
-import _, { remove } from 'lodash'
+import _, { head, remove } from 'lodash'
 import './style.css'
 import 'jquery'
 
@@ -44,7 +44,7 @@ granule: [1905-390516]
 blanes: [390517-390898]
 */
 
-
+var simulationId
 const glomeruliLimits = _.range(0, 127)
 const mcLimits = _.range(0, 635)
 const tmcLimits = _.range(636, 1905)
@@ -89,8 +89,8 @@ let visDelay = 500
 
 let access_token
 let OIDC_OP_USER_ENDPOINT = "https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/userinfo"
-let SA_DAINT_JOB_URL = 'https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/'
-let SA_DAINT_FILE_URL = 'https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/'
+let SA_DAINT_JOB_URL = 'https://corsproxy.hbpneuromorphic.eu/https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/'
+let SA_DAINT_FILE_URL = 'https://corsproxy.hbpneuromorphic.eu/https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/'
 let redirect_url
 
 
@@ -174,6 +174,7 @@ let simulatedConnections // all connections created during the simulation
 let allGranulePositions // dictionary of all granule cell positions
 let allMTCellsPositions
 const waitingBootModal = new Modal(mhe.ge('waiting-modal'), { keyboard: false })
+const messageBootModal = new Modal(mhe.ge('message-modal'), { keyboard: false })
 
 window.addEventListener('resize', resize);
 
@@ -185,44 +186,62 @@ getSimulationData("")
 //createGUI()
 
 
-function getSimulationData(origin, jobTitle = "") {
-    waitingBootModal.show()
+// generate simulation name
+function generateSimulationId() {
+    let now = new Date();
+    let yyyy = now.getFullYear();
+    let mm = String(now.getMonth() + 1).padStart(2, '0'); //January is 0!
+    let dd = String(now.getDate()).padStart(2, '0');
+    let hh = String(now.getHours()).padStart(2, '0');
+    let min = String(now.getMinutes()).padStart(2, '0');
+    let sec = String(now.getSeconds()).padStart(2, '0');
+    simulationId = "OB_" + yyyy + mm + dd + hh + min + sec;
 
-    let url, demoUrl
+    return simulationId
+}
+
+
+
+// get data to be used for exploring the model
+function getSimulationData(origin, jobTitle = "", onlyGLom = true) {
+    waitingBootModal.show()
+    
+    let url, demoUrl, suffix
     demoUrl = "https://corsproxy.hbpneuromorphic.eu/https://object.cscs.ch:443/v1/AUTH_c0a333ecf7c045809321ce9d9ecdfdea/web-resources-bsp/data/olfactory-bulb/demo_sim/"
 
     if (origin == "") {
         url = demoUrl
+        suffix = ""
         mhe.ge("sim-id").innerHTML = "Sim title: DEMO"
     } else {
         mhe.ge("sim-id").innerHTML = "Sim title: " + jobTitle
         url = origin
+        suffix = "/"
     }
-    obmod.setModalMessage("waiting-modal-msg", "Loading glomeruli positions ...")
+    obmod.setModalMessage("waiting-modal-msg", "Loading glomeruli positions")
     axios.get(demoUrl + 'ob_dict.json')
         .then(glomDict => {
             allGlomCoord = glomDict.data.glom_coord
-            axios.get(url + 'simgloms.json')
+            axios.get(url + 'simgloms.json' + suffix)
                 .then(simGloms => {
                     let simulatedGlomsNum = simGloms.data.sim_gloms
                     for (let sg of simulatedGlomsNum) {
                         simulatedGloms.push(sg.toString())
                     }
-                    obmod.setModalMessage("waiting-modal-msg", "Loading simulated cells list ...")
-
-                    axios.get(url + 'simcells.json')
+                    obmod.setModalMessage("waiting-modal-msg", "Loading simulated cells list")
+                    axios.get(url + 'simcells.json' + suffix)
                         .then(cellIds => {
                             console.log(cellIds)
                             let simulatedCellIdsNum = cellIds["data"]["sim_cells"];
                             for (let c of simulatedCellIdsNum) {
                                 simulatedCellIds.push(c.toString())
                             }
-                            obmod.setModalMessage("waiting-modal-msg", "Loading simulated connections ...")
+                            obmod.setModalMessage("waiting-modal-msg", "Loading simulated connections<br>... this might take a few minutes ...")
 
-                            axios.get(url + 'connections.json')
+                            axios.get(url + 'connections.json' + suffix)
                                 .then(connections => {
                                     simulatedConnections = connections.data
-                                    obmod.setModalMessage("waiting-modal-msg", "Loading granule cells positions ...")
+                                    obmod.setModalMessage("waiting-modal-msg", "Loading granule cell positions<br>... this might take a few minutes ...")
 
                                     axios.get(demoUrl + "granule_cells_red.json")
                                         .then(granules => {
@@ -230,7 +249,7 @@ function getSimulationData(origin, jobTitle = "") {
                                             axios.get(demoUrl + 'eta_norm.json')
                                                 .then(odors => {
                                                     odorValues = odors.data
-                                                    obmod.setModalMessage("waiting-modal-msg", "Loading mitral/tufted cell positions ...")
+                                                    obmod.setModalMessage("waiting-modal-msg", "Loading mitral/tufted cell positions")
 
                                                     axios.get(demoUrl + 'all_mt_cells.json')
                                                         .then(allMTCellsPos => {
@@ -261,7 +280,7 @@ function setColorThreeArray(color1, color2, numColors, maxColorIdx) {
 }
 
 function setColorArray(color1, color2, numColors) {
-    
+
     const colorGradientArray = new Gradient()
         .setColorGradient(color1, color2)
         .setMidpoint(numColors)
@@ -295,22 +314,85 @@ function initializeSceneContent() {
  */
 function runSimulation() {
 
+
+    let odor = mhe.gecn("od-sel-for-sim")
+    let gloms = mhe.gecn("gl-sel-for-sim")
+    let allGloms = " ["
+    if (odor.length != 1 || gloms.length < 1) {
+        obmod.setModalMessage("message-modal-msg", "<strong>One color</strong> and, at least, \
+            <strong>one glomerulus</strong> must be selected before running \
+            a simulation.")
+        messageBootModal.show()
+    } else {
+        waitingBootModal.show()
+        obmod.setModalMessage("waiting-modal-msg", "Launching the simulation on the HPC system")
+        // create the string for the glomeruli to be simulated
+        for (let glidx = 0; glidx < gloms.length; glidx++) {
+            console.log(gloms)
+
+            let id = gloms[glidx].id
+            console.log(glidx)
+            let lidx = id.lastIndexOf("_")
+
+            allGloms += id.slice(lidx + 1).toString() + ","
+        }
+        allGloms = allGloms.slice(0, -1) + "] "
+        console.log(allGloms)
+
+
+        // command string
+        let commandString = "sbatch /apps/hbp/ich002/cnr-software-utils/olfactory-bulb/olfactory-bulb-utils/ob_sim_launch.sh \
+            " + allGloms + " . " + odor[0].id + " " + mhe.ge("sniff-input").value.toString()
+
+        // create payload
+        let payload = {}
+        payload["command"] = commandString
+        payload["node_number"] = "1"
+        payload["core_number"] = "12"
+        payload["runtime"] = "2.0"
+        payload["title"] = simulationId
+
+        // create headers
+        let config = {}
+        config["Authorization"] = "Bearer " + access_token
+        config["payload"] = JSON.stringify(payload);
+        config["Access-Control-Allow-Origin"] = '*';
+
+        axios.interceptors.request.use(function (config) {
+            const token = 'Bearer ' + access_token;
+            config.headers.Authorization = token;
+            config.headers["payload"] = JSON.stringify(payload);
+            config.headers["Access-Control-Allow-Origin"] = "*"
+            return config;
+        });
+
+        axios.post(SA_DAINT_JOB_URL, {
+           
+        })
+            .then(response => {
+                console.log(response);
+                waitingBootModal.hide()
+            })
+    }
+    // Create headers
+
 }
 
+
+//
 function showGlomStrength() {
     let odorBtns = mhe.gecn("odor-btn")
     for (var i = 0; i < odorBtns.length; i++) {
         var odEl = mhe.ge(odorBtns[i].id)
-        if (odEl.classList.contains("sel-for-sim")) {
-            odEl.classList.remove("sel-for-sim")
+        if (odEl.classList.contains("od-sel-for-sim")) {
+            odEl.classList.remove("od-sel-for-sim")
         }
     }
-    markForSim(this.id, "")
+    markForSim(this.id, "", true)
 
     let odor = this.id
     for (let idx of glomeruliLimits) {
         let glomName = "gsim_" + idx.toString()
-        // console.log(odorValues[odor][idx] * colorMapGlShades, Math.round(odorValues[odor][idx] * colorMapGlShades))
         let value = Math.round(odorValues[odor][idx] * colorMapGlShades)
         mhe.ge(glomName).style.backgroundColor = colorsGlom[value]
     }
@@ -330,9 +412,8 @@ function cleanCanvas() {
     }
 }
 
-
+// Show inhibitory and excitatory weights
 function showWeights() {
-
     let boxClass, element, crrWgh, obj, cell
 
     let type = this.id.slice(0, 3)
@@ -569,26 +650,32 @@ function markGlom() {
     markForSim(this.id, "")
 }
 
-function markForSim(el, opType) {
-    if (opType == "") {
-        if (!mhe.ge(el).classList.contains("sel-for-sim")) {
-            mhe.ge(el).classList.add("sel-for-sim")
+function markForSim(el, opType = "", odor = false) {
+    if (odor) {
+        if (!mhe.ge(el).classList.contains("od-sel-for-sim")) {
+            mhe.ge(el).classList.add("od-sel-for-sim")
         } else {
-            mhe.ge(el).classList.remove("sel-for-sim")
+            mhe.ge(el).classList.remove("od-sel-for-sim")
+        }
+    } else if (opType == "") {
+        if (!mhe.ge(el).classList.contains("gl-sel-for-sim")) {
+            mhe.ge(el).classList.add("gl-sel-for-sim")
+        } else {
+            mhe.ge(el).classList.remove("gl-sel-for-sim")
         }
     } else if (opType == "all") {
-        if (!mhe.ge(el).classList.contains("sel-for-sim")) {
-            mhe.ge(el).classList.add("sel-for-sim")
+        if (!mhe.ge(el).classList.contains("gl-sel-for-sim")) {
+            mhe.ge(el).classList.add("gl-sel-for-sim")
         }
     } else if (opType == "none") {
-        if (mhe.ge(el).classList.contains("sel-for-sim")) {
-            mhe.ge(el).classList.remove("sel-for-sim")
+        if (mhe.ge(el).classList.contains("gl-sel-for-sim")) {
+            mhe.ge(el).classList.remove("gl-sel-for-sim")
         }
     } else if (opType == "invert") {
-        if (mhe.ge(el).classList.contains("sel-for-sim")) {
-            mhe.ge(el).classList.remove("sel-for-sim")
+        if (mhe.ge(el).classList.contains("gl-sel-for-sim")) {
+            mhe.ge(el).classList.remove("gl-sel-for-sim")
         } else {
-            mhe.ge(el).classList.add("sel-for-sim")
+            mhe.ge(el).classList.add("gl-sel-for-sim")
         }
     }
 }
@@ -725,7 +812,7 @@ function createCellSelectionBox() {
 
     let simId = mhe.cf("div")
     simId.id = "sim-id"
-    simId.innerHTML = "Sim ID: DEMO"
+    simId.innerHTML = "Simulation ID: DEMO"
 
     // Glomeruli box
     let glomBox = mhe.cf('div')
@@ -898,8 +985,8 @@ function createCellSelectionBox() {
     boxButtons.appendChild(cleanTMCBtn)
     //boxButtons.appendChild(cleanGrCBtn)
 
-    
-    
+
+
     // Insert list of Glomeruli
     glomListBox.appendChild(glomBox)
 
@@ -1025,6 +1112,7 @@ function buildDOM() {
 
     let guidebookModal = obmod.createGuidebookModal("guidebook-modal", "guidebook-modal-title")
     let waitingModal = obmod.createWaitingModal("waiting-modal", "waiting-modal-title", "waiting-modal-msg")
+    let messageModal = obmod.createMessageModal("message-modal", "message-modal-title", "message-modal-msg")
 
     banner.appendChild(bannerLogo)
     banner.appendChild(b_title)
@@ -1038,6 +1126,7 @@ function buildDOM() {
     page.appendChild(banner)
     page.appendChild(guidebookModal)
     page.appendChild(waitingModal)
+    page.appendChild(messageModal)
     page.appendChild(visualizer)
 
     b_title.innerHTML = "OLFACTORY BULB EXPLORER"
@@ -1056,58 +1145,93 @@ function buildDOM() {
 
 function checkSimStatus() {
     initializeOidc()
+    waitingBootModal.show()
+    obmod.setModalMessage("waiting-modal-msg", "Fetching job details")
     axios.get(SA_DAINT_JOB_URL, {
         headers: {
             "Authorization": 'Bearer ' + access_token
         }
     })
         .then(joblist => {
-           
+            
             let data = joblist["data"]
-            console.log(data)
-            for (let i = 0; i < data.length; i++) {
-                console.log(i)
-
-                let job = data[i]
-                let jobTitle = job["title"]
-                let initDate = job["init_date"]
-                let endDate = job["end_date"]
-                let stage = job["stage"]
-                let jobString = jobTitle + " -- [<strong>info</strong>]"
-                let jobToolTip = jobTitle + "- Job Start: " + initDate + " - Job end: " + endDate
-                let jobListDiv = mhe.ge("job-list-div")
-                let el = createJobListEl(jobString, jobToolTip)
+            let jobListDiv = mhe.ge("job-list-div")
+            jobListDiv.innerHTML = ""
+            if (data.length == 0) {
+                let jobString = "NO JOB SUBMITTED YET OR NO JOB AVAILABLE ANYMORE"
+                let el = createJobListEl(jobString, "failed-job", "", "", "")
+                el.setAttribute("data-job-id","none")
                 jobListDiv.appendChild(el)
-                console.log(jobString)
+            } else {
+                for (let i = 0; i < data.length; i++) {
+                    let job = data[i]
+                    let jobTitle = job["title"]
+                    let jobId = job["job_id"]
+                    let initDate = job["init_date"]
+                    let endDate = job["end_date"]
+                    let stage = job["stage"]
+                    let jobString = "JOB TITLE: <b>" + jobTitle + "</b> -- JOB STAGE: <b>" + stage + "</b><br>START: " + initDate + " -- END: " + endDate
 
+                    let jobClass = ""
+                    if (stage == "QUEUED") {
+                        jobClass = "queue-job"
+                    } else if (stage == "FAILED") {
+                        jobClass = "failed-job"
+                    } else if (stage == "SUCCESSFUL") {
+                        jobClass = "success-job"
+                    }
+                    let el = createJobListEl(jobString, jobClass, jobId, jobTitle, stage)
+                   
 
-
+                    jobListDiv.appendChild(el)
+                }
             }
-            console.log(joblist)
+            waitingBootModal.hide()
         })
 }
 
+// fetch and load simulation result files
 function fetchSim() {
+    let jobEl = mhe.gecn("job-active")
+    let jobId = jobEl[0].getAttribute("data-job-id")
+    if (jobId != null) {
+        let title = jobEl[0].getAttribute("data-job-title")
+        getSimulationData(SA_DAINT_FILE_URL + jobId + "/", title)
+    }
+}
+
+// download simulation results
+function downloadSimResults() {
 
 }
 
-function createJobListEl(text, tooltip) {
-    let span = mhe.cf("div")
+
+function createJobListEl(text, jobClass, jobId, jobTitle, stage) {
+    let div = mhe.cf("div")
 
     let el = mhe.cf('a')
-    el.classList.add("list-group-item", "list-group-item-action", "list-group-item-light", "job-box-el")
+    el.classList.add("list-group-item", "list-group-item-action", "job-box-el", jobClass)
     el.setAttribute("href", "#")
+    el.setAttribute("data-job-status", stage)
+    el.setAttribute("data-job-id", jobId)
+    el.setAttribute("data-job-title", jobTitle)
+    el.addEventListener("click", selectJob)
     el.innerHTML = text
 
-    let info = mhe.cf("span")
-    info.setAttribute("data-toggle", "tooltip")
-    info.setAttribute("data-placement", "right")
-    info.setAttribute("title", tooltip)
+    div.appendChild(el)
 
-    span.appendChild(el)
-    span.appendChild(info)
+    return div
+}
 
-    return span
+function selectJob() {
+    let allJobEl = mhe.gecn("job-box-el")
+    for (let i = 0; i < allJobEl.length; i++) {
+        if (allJobEl[i].getAttribute("data-job-id") == this.getAttribute("data-job-id")) {
+            this.classList.add("job-active")
+        } else {
+            allJobEl[i].classList.remove("job-active")
+        }
+    }
 }
 
 function populateFetchPanel() {
@@ -1121,29 +1245,33 @@ function populateFetchPanel() {
     jobList.classList.add("list-group")
     jobList.id = "job-list-div"
 
-    // create dummy element
-    let el = createJobListEl("--", "--")
-    jobList.appendChild(el)
-
     // check simulations button
     let checkSimBtn = mhe.cf("button")
     checkSimBtn.id = "check-sim-btn"
-    checkSimBtn.innerHTML = "CHECK SIMULATION STATUS"
-    checkSimBtn.classList.add("run-hpc-btn")
+    checkSimBtn.innerHTML = "CHECK JOB STATUS"
+    checkSimBtn.classList.add("hpc-btns")
     checkSimBtn.addEventListener("click", checkSimStatus)
 
     // fetch simulation button
     let fetchSimBtn = mhe.cf("button")
     fetchSimBtn.id = "check-sim-btn"
-    fetchSimBtn.innerHTML = "FETCH SIMULATION"
-    fetchSimBtn.classList.add("run-hpc-btn")
+    fetchSimBtn.innerHTML = "FETCH AND LOAD SIMULATION RESULTS"
+    fetchSimBtn.classList.add("hpc-btns")
     fetchSimBtn.addEventListener("click", fetchSim)
+
+    // Download simulation results button
+    let downloadSimBtn = mhe.cf("button")
+    downloadSimBtn.id = "download-sim-btn"
+    downloadSimBtn.innerHTML = "DOWNLOAD SIMULATION RESULTS"
+    downloadSimBtn.classList.add("hpc-btns")
+    downloadSimBtn.addEventListener("click", downloadSimResults)
 
     // 
     mhe.ge("fetch-body").appendChild(jobListTitle)
     mhe.ge("fetch-body").appendChild(jobList)
     mhe.ge("fetch-body").appendChild(checkSimBtn)
     mhe.ge("fetch-body").appendChild(fetchSimBtn)
+    mhe.ge("fetch-body").appendChild(downloadSimBtn)
 }
 
 // Insert DOM elements in the RUN SIMULATION panel
@@ -1168,6 +1296,8 @@ function populateSubmitPanel() {
     sniffInput.setAttribute("type", "text")
     sniffInput.setAttribute("aria-label", "Default")
     sniffInput.setAttribute("aria-describedby", "sniff-span")
+    sniffInput.setAttribute("value", "200")
+    sniffInput.setAttribute('disabled', '')
     sniffInput.classList.add("form-control", "input-param")
 
     sniffSpanDiv.appendChild(sniffSpan)
@@ -1192,6 +1322,8 @@ function populateSubmitPanel() {
     durInput.id = "dur-input"
     durInput.setAttribute("type", "text")
     durInput.setAttribute("aria-label", "Default")
+    durInput.setAttribute("value", "1000")
+    durInput.setAttribute('disabled', '')
     durInput.setAttribute("aria-describedby", "dur-span")
     durInput.classList.add("form-control", "input-param")
 
@@ -1199,12 +1331,18 @@ function populateSubmitPanel() {
     durDiv.appendChild(durSpanDiv)
     durDiv.appendChild(durInput)
 
+    // Simulation name Div
+    let simNameDiv = mhe.cf("div")
+    simNameDiv.id = "sim-name-run"
+    simNameDiv.classList.add("sim-name-div")
+    simNameDiv.innerHTML = "Simulation ID: " + generateSimulationId()
+
 
     // Run simulatioin button
     let runSimBtn = mhe.cf("button")
     runSimBtn.id = "run-sim-btn"
     runSimBtn.innerHTML = "RUN"
-    runSimBtn.classList.add("run-hpc-btn")
+    runSimBtn.classList.add("hpc-btns")
     runSimBtn.addEventListener("click", runSimulation)
 
 
@@ -1231,11 +1369,11 @@ function populateSubmitPanel() {
         odorBtn.innerHTML = o
         odorBtn.classList.add("odor-btn")
         odorBtn.addEventListener("click", showGlomStrength)
-
-
         odorCol.appendChild(odorBtn)
         odorsRow.appendChild(odorCol)
     }
+
+
 
     // Insert title for the glomerulus selection panel
     let simGlomTitle = mhe.cf("h5")
@@ -1302,10 +1440,10 @@ function populateSubmitPanel() {
     odorsContainer.appendChild(colorMapImg)
     odorsContainer.appendChild(selBtnContainer)
 
+    mhe.ge("submit-body").appendChild(simNameDiv)
     mhe.ge("submit-body").appendChild(odorsContainer)
     mhe.ge("submit-body").appendChild(sniffDiv)
     mhe.ge("submit-body").appendChild(durDiv)
-
     mhe.ge("submit-body").appendChild(runSimBtn)
 }
 
@@ -1494,6 +1632,7 @@ function addCell(data, cell) {
     renderer.render(scene, camera);
 }
 
+// Select/Deselect all mitral/tufted cells
 function selectDeselectAll() {
     if (this.id == "sel-mitral-btn") {
         let allEls = mhe.gecn("mitr-box-el")
