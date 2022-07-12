@@ -77,8 +77,6 @@ function createGuidebookModal(modalId, modalTitleId) {
 }
 
 
-
-
 //Modal for displaying loading messages
 function createWaitingModal(modalId, modalTitleId, modalMessageId) {
     let modalDiv = mhe.cf("div")

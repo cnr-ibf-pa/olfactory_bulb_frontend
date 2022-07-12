@@ -31,7 +31,7 @@ async function loginSilent(clientId, redirUrl) {
 }
 
 function createAuthManager(clientId, redirUrl) {
-    const oidcConfig = createAuthConfig(clientId, redirUrl);
+  const oidcConfig = createAuthConfig(clientId, redirUrl);
   const authMgr = new Oidc.UserManager(oidcConfig);
   return authMgr;
 }
@@ -39,17 +39,16 @@ function createAuthManager(clientId, redirUrl) {
 function init(clientId, redirUrl) {
   clientId = clientId
   redirUrl = redirUrl
-    const authMgr = createAuthManager(clientId, redirUrl);
+  const authMgr = createAuthManager(clientId, redirUrl)
   return login(authMgr);
   //  return loginSilent(authMgr);
 }
 
 async function getUserInfo() {
-    const authMgr = createAuthManager(clientId, redirUrl);
+  const authMgr = createAuthManager(clientId, redirUrl);
   const user = await authMgr.getUser();
   return user;
 }
-
 
 export const storageKeys = {
   SAVED_URL: 'urlParam',
@@ -66,7 +65,6 @@ export function saveUrl(url) {
 export function getSavedUrl() {
   return sessionStorage.getItem(storageKeys.SAVED_URL);
 }
-
 
 export default init;
 

@@ -58,16 +58,20 @@ body {
     border: solid;
     border-width: 1px;
     border-color: black;
-    max-height: 500px;
+    max-height: 390px;
 }
 
-.list-group-item {
-    margin: 0px !important;
-    padding: 0px !important;
-    font-size: 12px !important;
-    color: darkblue !important;
-    background-color: lightgrey !important;
-}
+    .list-group#glom-box-names {
+        height: 370px !important;
+    }
+
+    .list-group-item {
+        margin: 0px !important;
+        padding: 0px !important;
+        font-size: 12px !important;
+        color: darkblue !important;
+        background-color: lightgrey !important;
+    }
 
     .list-group-item.active {
         background-color: whitesmoke !important;
@@ -141,14 +145,13 @@ body {
     overflow-y: hidden !important;
 }
 
+
 #tuft-box-names {
     height: 221px;
     overflow-y: hidden !important;
 }
 
-#glom-box-names {
-    height: 368px;
-}
+
 
 .mitr-box-el {
     height: 42px;
@@ -158,8 +161,12 @@ body {
     height: 21px;
 }
 
-.glom-box-el {
-    height: 21px;
+.glom-box {
+    height: 50px !important;
+}
+
+#glom-box-names {
+    width: 100% !important;
 }
 
 .mitr-box-el#mitr-- {

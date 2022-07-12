@@ -86,13 +86,11 @@ let odorValues
 
 let visDelay = 500
 
-
 let access_token
 let OIDC_OP_USER_ENDPOINT = "https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/userinfo"
 let SA_DAINT_JOB_URL = 'https://corsproxy.hbpneuromorphic.eu/https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/'
 let SA_DAINT_FILE_URL = 'https://corsproxy.hbpneuromorphic.eu/https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/'
 let redirect_url
-
 
 // ========================== AUTHENTICATION ====================================== 
 
@@ -102,6 +100,7 @@ let localClientId
 let localRedirUrl
 if (window.location.href.includes("localhost")) {
     localClientId = 'localhost-test-2'
+    //localClientId = 'localhost-llb-dev'
     localRedirUrl = 'http://localhost:8080/callback.html'
 } else {
     localClientId = 'llb-olfactory-bulb'
@@ -110,16 +109,19 @@ if (window.location.href.includes("localhost")) {
 
 import * as m_oidc from './handlers/auth.js';
 
-initializeOidc()
+initializeOidc(false)
 
 //
-function initializeOidc() {
+function initializeOidc(forceReload = false) {
     var user_json = window.sessionStorage.getItem('user'); // check if user is already logged in
+    console.log("user_json", user_json)
 
-    if (!user_json) {
+    if (forceReload || !user_json) {
         m_oidc.init(localClientId, localRedirUrl); // run login
     } else {
+        m_oidc.loginSilent(localClientId, localRedirUrl);
         var user = JSON.parse(user_json); // parse user json
+        console.log("Silently logging in!")
     }
     access_token = user.access_token
 }
@@ -133,6 +135,7 @@ var actualSizes = get_canvas_dimensions()
 /*
  * SET SCENE PARAMETERS 
  */
+
 const scene = new THREE.Scene();
 const pointLight = new THREE.PointLight(0xffffff, 1)
 const pointLight2 = new THREE.PointLight(0xffffff, 1)
@@ -166,23 +169,26 @@ var selected_tuft = "mitr--"
 var plottedNet = {}
 
 // data container
-let glom_list // list of glomeurali ids ("0" -> "126") in string format
-let allGlomCoord // dictionary with all glomeurli coordinates
+let glom_list = [] // list of glomeurali ids ("0" -> "126") in string format
+let allGlomCoord = [] // dictionary with all glomeurli coordinates
 let simulatedCellIds = [] // 
 let simulatedGloms = []
-let simulatedConnections // all connections created during the simulation
-let allGranulePositions // dictionary of all granule cell positions
-let allMTCellsPositions
+let simulatedConnections = []// all connections created during the simulation
+let allGranulePositions = []// dictionary of all granule cell positions
+let allMTCellsPositions = []
 const waitingBootModal = new Modal(mhe.ge('waiting-modal'), { keyboard: false })
 const messageBootModal = new Modal(mhe.ge('message-modal'), { keyboard: false })
+
+const demoUrl = "https://corsproxy.hbpneuromorphic.eu/https://object.cscs.ch:443/v1/AUTH_c0a333ecf7c045809321ce9d9ecdfdea/web-resources-bsp/data/olfactory-bulb/demo_sim/"
 
 window.addEventListener('resize', resize);
 
 createScene()
 resize()
 animate()
-getSimulationData("")
 
+setExpirationTime()
+getSimulationData("")
 //createGUI()
 
 
@@ -200,70 +206,94 @@ function generateSimulationId() {
     return simulationId
 }
 
-
-
 // get data to be used for exploring the model
-function getSimulationData(origin, jobTitle = "", onlyGLom = true) {
+function getSimulationData(origin, jobTitle = "") {
+    checkTokenValidity()
     waitingBootModal.show()
-    
-    let url, demoUrl, suffix
-    demoUrl = "https://corsproxy.hbpneuromorphic.eu/https://object.cscs.ch:443/v1/AUTH_c0a333ecf7c045809321ce9d9ecdfdea/web-resources-bsp/data/olfactory-bulb/demo_sim/"
+    cleanAllCanvas()
+    let url, suffix, headers
 
     if (origin == "") {
         url = demoUrl
         suffix = ""
         mhe.ge("sim-id").innerHTML = "Sim title: DEMO"
+        headers = {}
     } else {
         mhe.ge("sim-id").innerHTML = "Sim title: " + jobTitle
         url = origin
         suffix = "/"
+        headers = { "Authorization": "Bearer " + access_token }
     }
-    obmod.setModalMessage("waiting-modal-msg", "Loading glomeruli positions")
-    axios.get(demoUrl + 'ob_dict.json')
-        .then(glomDict => {
-            allGlomCoord = glomDict.data.glom_coord
-            axios.get(url + 'simgloms.json' + suffix)
-                .then(simGloms => {
-                    let simulatedGlomsNum = simGloms.data.sim_gloms
-                    for (let sg of simulatedGlomsNum) {
-                        simulatedGloms.push(sg.toString())
+    obmod.setModalMessage("waiting-modal-msg", "Loading simulated glomeruli positions")
+    axios.get(url + 'simgloms.json' + suffix, { headers: headers })
+        .then(simGloms => {
+            if (origin == "") {
+                var simulatedGlomsNum = simGloms["data"]["sim_gloms"]
+            } else {
+                var simulatedGlomsNum = JSON.parse(simGloms["data"])["sim_gloms"]
+            }
+            for (let sg of simulatedGlomsNum) {
+                simulatedGloms.push(sg.toString())
+            }
+            obmod.setModalMessage("waiting-modal-msg", "Loading simulated cells list")
+            axios.get(url + 'simcells.json' + suffix, { headers: headers })
+                .then(cellIds => {
+                    if (origin == "") {
+                        var simulatedCellIdsNum = cellIds["data"]["sim_cells"]
+
+                    } else {
+                        var simulatedCellIdsNum = JSON.parse(cellIds["data"])["sim_cells"]
                     }
-                    obmod.setModalMessage("waiting-modal-msg", "Loading simulated cells list")
-                    axios.get(url + 'simcells.json' + suffix)
-                        .then(cellIds => {
-                            console.log(cellIds)
-                            let simulatedCellIdsNum = cellIds["data"]["sim_cells"];
-                            for (let c of simulatedCellIdsNum) {
-                                simulatedCellIds.push(c.toString())
+                    for (let c of simulatedCellIdsNum) {
+                        simulatedCellIds.push(c.toString())
+                    }
+                    obmod.setModalMessage("waiting-modal-msg", "Loading simulated connections<br>... this might take a few minutes ...")
+                    axios.get(url + 'connections.json' + suffix, { headers: headers })
+                        .then(connections => {
+                            if (origin == "") {
+                                simulatedConnections = connections["data"]
+                            } else {
+                                simulatedConnections = JSON.parse(connections["data"])
                             }
-                            obmod.setModalMessage("waiting-modal-msg", "Loading simulated connections<br>... this might take a few minutes ...")
+                            obmod.setModalMessage("waiting-modal-msg", "Loading glomeruli positions")
+                            if (true) {
+                                axios.get(demoUrl + 'ob_dict.json')
+                                    .then(glomDict => {
+                                        allGlomCoord = glomDict.data.glom_coord
+                                        obmod.setModalMessage("waiting-modal-msg", "Loading granule cell positions<br>... this might take a few minutes ...")
+                                        localStorage.setItem("allGlomCoord", allGlomCoord)
+                                        axios.get(demoUrl + "granule_cells_red.json")
+                                            .then(granules => {
+                                                allGranulePositions = granules.data
+                                                localStorage.setItem("allGranulePositions", allGranulePositions)
+                                                axios.get(demoUrl + 'eta_norm.json')
+                                                    .then(odors => {
+                                                        odorValues = odors.data
+                                                        localStorage.setItem("odorValues", odorValues)
+                                                        obmod.setModalMessage("waiting-modal-msg", "Loading mitral/tufted cell positions")
+                                                        axios.get(demoUrl + 'all_mt_cells.json')
+                                                            .then(allMTCellsPos => {
+                                                                allMTCellsPositions = allMTCellsPos
+                                                                localStorage.setItem("allMTCellsPositions", allMTCellsPositions)
+                                                                initializeSceneContent()
+                                                                waitingBootModal.hide()
+                                                            })
+                                                    })
 
-                            axios.get(url + 'connections.json' + suffix)
-                                .then(connections => {
-                                    simulatedConnections = connections.data
-                                    obmod.setModalMessage("waiting-modal-msg", "Loading granule cell positions<br>... this might take a few minutes ...")
-
-                                    axios.get(demoUrl + "granule_cells_red.json")
-                                        .then(granules => {
-                                            allGranulePositions = granules.data
-                                            axios.get(demoUrl + 'eta_norm.json')
-                                                .then(odors => {
-                                                    odorValues = odors.data
-                                                    obmod.setModalMessage("waiting-modal-msg", "Loading mitral/tufted cell positions")
-
-                                                    axios.get(demoUrl + 'all_mt_cells.json')
-                                                        .then(allMTCellsPos => {
-                                                            allMTCellsPositions = allMTCellsPos
-                                                            initializeSceneContent()
-                                                            waitingBootModal.hide()
-                                                        })
-                                                })
-
-                                        })
-                                })
+                                            })
+                                    })
+                            } else {
+                                allGranulePositions = localStorage.getItem("allGranulePositions")
+                                odorValues = localStorage.getItem("odorValues")
+                                allMTCellsPositions = localStorage.getItem("allMTCellsPositions")
+                                allGlomCoord = localStorage.getItem("allGlomCoord")
+                                initializeSceneContent()
+                                waitingBootModal.hide()
+                            }
                         })
                 })
         })
+    
 }
 
 // Set color array for plotting elements with gradient colors
@@ -301,7 +331,6 @@ function initializeSceneContent() {
     for (let i of glom_list) {
         glom_ids.push(i.toString())
     }
-
     populateCellDropdown("glom", glom_ids)
     populateCellDropdown("mitr", [])
     populateCellDropdown("tuft", [])
@@ -312,9 +341,22 @@ function initializeSceneContent() {
  * FUNCTIONS
  * *********
  */
+
+function checkTokenValidity() {
+    axios.get(SA_DAINT_JOB_URL, {
+        headers: {
+            "Authorization": 'Bearer ' + access_token
+        }
+    })
+        .catch(error => {
+            console.log(error + "_ERROR")
+            waitingBootModal.hide()
+            initializeOidc(true)
+        })
+}
+
 function runSimulation() {
-
-
+    checkTokenValidity()
     let odor = mhe.gecn("od-sel-for-sim")
     let gloms = mhe.gecn("gl-sel-for-sim")
     let allGloms = " ["
@@ -328,17 +370,11 @@ function runSimulation() {
         obmod.setModalMessage("waiting-modal-msg", "Launching the simulation on the HPC system")
         // create the string for the glomeruli to be simulated
         for (let glidx = 0; glidx < gloms.length; glidx++) {
-            console.log(gloms)
-
             let id = gloms[glidx].id
-            console.log(glidx)
             let lidx = id.lastIndexOf("_")
-
             allGloms += id.slice(lidx + 1).toString() + ","
         }
         allGloms = allGloms.slice(0, -1) + "] "
-        console.log(allGloms)
-
 
         // command string
         let commandString = "sbatch /apps/hbp/ich002/cnr-software-utils/olfactory-bulb/olfactory-bulb-utils/ob_sim_launch.sh \
@@ -347,10 +383,11 @@ function runSimulation() {
         // create payload
         let payload = {}
         payload["command"] = commandString
-        payload["node_number"] = "1"
-        payload["core_number"] = "12"
-        payload["runtime"] = "2.0"
+        payload["node_number"] = "2"
+        payload["core_number"] = "24"
+        payload["runtime"] = "4.0"
         payload["title"] = simulationId
+        payload["expiration_time"] = simulationId
 
         // create headers
         let config = {}
@@ -365,12 +402,9 @@ function runSimulation() {
             config.headers["Access-Control-Allow-Origin"] = "*"
             return config;
         });
-
         axios.post(SA_DAINT_JOB_URL, {
-           
         })
             .then(response => {
-                console.log(response);
                 waitingBootModal.hide()
             })
     }
@@ -399,9 +433,9 @@ function showGlomStrength() {
 }
 
 // Remove groups of cells from main canvas
-function cleanCanvas() {
+function cleanCellCanvas() {
     for (let k in plottedNet) {
-        if (k.slice(0, 3) != "glom") {
+        if (k.slice(0, 4) != "glom") {
             if ((this.id == "clean-mc-btn" && mcLimits.includes(parseInt(k))) ||
                 (this.id == "clean-tmc-btn" && tmcLimits.includes(parseInt(k)))) {
                 removeSingleCell(k)
@@ -409,6 +443,19 @@ function cleanCanvas() {
                 delete plottedNet[k]
             }
         }
+    }
+}
+
+// Remove groups of cells from main canvas
+function cleanAllCanvas() {
+    for (let k in plottedNet) {
+        if (k.slice(0, 4) == "glom") {
+            console.log("cleaning glom")
+            scene.remove(scene.getObjectByName(plottedNet[k][0]))
+        } else {
+            removeSingleCell(k)
+        }
+        delete plottedNet[k]
     }
 }
 
@@ -446,7 +493,6 @@ function showWeights() {
                         let wPos = crrWgh[w + 1]
                         let wStr = crrWgh[w]
                         let dsegPos = Math.round(dsegLen * wPos).toString()
-                        //console.log(cde, gcid, dsegLen, dsegPos, wPos, wStr)
                         obj = cell + "_dend_" + cde + "_" + dsegPos
                         element = scene.getObjectByName(obj)
                         if (element) {
@@ -485,6 +531,7 @@ function plotCell() {
                 continue
             } else {
                 addCell(allMTCellsPositions["data"][cell], cell);
+                //addCell(allMTCellsPositions[cell], cell);
             }
         }
     })
@@ -965,21 +1012,21 @@ function createCellSelectionBox() {
     cleanMCBtn.classList.add("btn", "btn-secondary", "cell-btn")
     cleanMCBtn.innerHTML = "Remove All Mitral Cells"
     cleanMCBtn.id = "clean-mc-btn"
-    cleanMCBtn.addEventListener("click", cleanCanvas)
+    cleanMCBtn.addEventListener("click", cleanCellCanvas)
 
     //
     let cleanTMCBtn = mhe.cf('button')
     cleanTMCBtn.classList.add("btn", "btn-secondary", "cell-btn")
     cleanTMCBtn.innerHTML = "Remove All Tufted Cells"
     cleanTMCBtn.id = "clean-tmc-btn"
-    cleanTMCBtn.addEventListener("click", cleanCanvas)
+    cleanTMCBtn.addEventListener("click", cleanCellCanvas)
 
     //
     let cleanGrCBtn = mhe.cf('button')
     cleanGrCBtn.classList.add("btn", "btn-secondary", "cell-btn")
     cleanGrCBtn.innerHTML = "Remove All Granule Cells"
     cleanGrCBtn.id = "clean-grc-btn"
-    cleanGrCBtn.addEventListener("click", cleanCanvas)
+    cleanGrCBtn.addEventListener("click", cleanCellCanvas)
 
     boxButtons.appendChild(cleanMCBtn)
     boxButtons.appendChild(cleanTMCBtn)
@@ -1138,72 +1185,133 @@ function buildDOM() {
     populateSubmitPanel()
     populateFetchPanel()
 
-
-
     return;
 }
 
 function checkSimStatus() {
-    initializeOidc()
-    waitingBootModal.show()
     obmod.setModalMessage("waiting-modal-msg", "Fetching job details")
+    waitingBootModal.show()
     axios.get(SA_DAINT_JOB_URL, {
         headers: {
             "Authorization": 'Bearer ' + access_token
         }
     })
-        .then(joblist => {
-            
-            let data = joblist["data"]
-            let jobListDiv = mhe.ge("job-list-div")
-            jobListDiv.innerHTML = ""
-            if (data.length == 0) {
-                let jobString = "NO JOB SUBMITTED YET OR NO JOB AVAILABLE ANYMORE"
-                let el = createJobListEl(jobString, "failed-job", "", "", "")
-                el.setAttribute("data-job-id","none")
-                jobListDiv.appendChild(el)
-            } else {
-                for (let i = 0; i < data.length; i++) {
-                    let job = data[i]
-                    let jobTitle = job["title"]
-                    let jobId = job["job_id"]
-                    let initDate = job["init_date"]
-                    let endDate = job["end_date"]
-                    let stage = job["stage"]
-                    let jobString = "JOB TITLE: <b>" + jobTitle + "</b> -- JOB STAGE: <b>" + stage + "</b><br>START: " + initDate + " -- END: " + endDate
-
-                    let jobClass = ""
-                    if (stage == "QUEUED") {
-                        jobClass = "queue-job"
-                    } else if (stage == "FAILED") {
-                        jobClass = "failed-job"
-                    } else if (stage == "SUCCESSFUL") {
-                        jobClass = "success-job"
-                    }
-                    let el = createJobListEl(jobString, jobClass, jobId, jobTitle, stage)
-                   
-
-                    jobListDiv.appendChild(el)
-                }
-            }
+        .catch(error => {
+            console.log(error + "_ERROR")
             waitingBootModal.hide()
+            initializeOidc(true)
         })
+        .then(jobList => populateJobList(jobList))
+}
+
+function populateJobList(jobList) {
+    let data = jobList["data"]
+    let jobListDiv = mhe.ge("job-list-div")
+    jobListDiv.innerHTML = ""
+    if (data.length == 0) {
+        let jobString = "NO JOB SUBMITTED YET OR NO JOB AVAILABLE ANYMORE"
+        let el = createJobListEl(jobString, "failed-job", "", "", "")
+        el.setAttribute("data-job-id", "none")
+        jobListDiv.appendChild(el)
+    } else {
+        for (let i = 0; i < data.length; i++) {
+            let job = data[i]
+            let jobTitle = job["title"]
+            let jobId = job["job_id"]
+            let initDate = job["init_date"]
+            let endDate = job["end_date"]
+            let stage = job["stage"]
+            let jobString = "JOB TITLE: <b>" + jobTitle + "</b> -- JOB STAGE: <b>" + stage + "</b><br>START: " + initDate + " -- END: " + endDate
+            //console.log(jobString)
+            let jobClass = ""
+            if (stage == "QUEUED") {
+                jobClass = "queue-job"
+            } else if (stage == "FAILED") {
+                jobClass = "failed-job"
+            } else if (stage == "SUCCESSFUL") {
+                jobClass = "success-job"
+            } else if (stage == "DELETED") {
+                continue
+            }
+            let el = createJobListEl(jobString, jobClass, jobId, jobTitle, stage)
+            jobListDiv.appendChild(el)
+        }
+    }
+    setTimeout(() => { waitingBootModal.hide(); }, 600);
 }
 
 // fetch and load simulation result files
 function fetchSim() {
-    let jobEl = mhe.gecn("job-active")
-    let jobId = jobEl[0].getAttribute("data-job-id")
-    if (jobId != null) {
-        let title = jobEl[0].getAttribute("data-job-title")
-        getSimulationData(SA_DAINT_FILE_URL + jobId + "/", title)
+    checkTokenValidity()
+    let jobInfo = getSelectedJobInfo()
+    if (jobInfo == []) {
+        obmod.setModalMessage("message-modal-msg", "No job selected.<br>Check \
+        the job status and select a job first.")
+        messageBootModal.show()
+        return
+    } else {
+        var selJobID = jobInfo[0]
+        var selJobTitle = jobInfo[1]
     }
+
+    getSimulationData(SA_DAINT_FILE_URL + selJobID + "/", selJobTitle)
 }
 
 // download simulation results
 function downloadSimResults() {
+    let jobInfo = getSelectedJobInfo()
+    if (jobInfo == []) {
+        obmod.setModalMessage("message-modal-msg", "No job selected.<br>Check \
+        the job status and select a job first.")
+        messageBootModal.show()
+        return
+    } else {
+        var selJobID = jobInfo[0]
+        var selJobTitle = jobInfo[1]
+    }
+    var fileUrl = SA_DAINT_FILE_URL + selJobID + "/"
+
+    fetch(fileUrl + "ob_sim_all.zip")
+        .then(resp => resp.blob())
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            // the filename you want
+            a.download = selJobTitle + "_ob_sim_all.zip";
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        })
+        .catch(() => alert('oh no!'));
+}
+
+
+function openExplorer() {
+    //var fetchPanelBtn = mhe.ge("fetch-header-btn")
+    //fetchPanelBtn.classList.add("collapsed")
+    var explorerPanelBtn = mhe.ge("explorer-header-btn")
+    explorerPanelBtn.click()
 
 }
+
+function getSelectedJobInfo() {
+    var selJob = mhe.gecn("job-active")
+    var selJobID = ""
+    var selJobTitle = ""
+
+    if (selJob.length == 0) {
+        console.log("Exiting")
+        return 0
+    } else {
+        selJobID = selJob[0].getAttribute("data-job-id")
+        selJobTitle = selJob[0].getAttribute("data-job-title")
+    }
+    return [selJobID, selJobTitle]
+}
+
+
 
 
 function createJobListEl(text, jobClass, jobId, jobTitle, stage) {
@@ -1217,7 +1325,6 @@ function createJobListEl(text, jobClass, jobId, jobTitle, stage) {
     el.setAttribute("data-job-title", jobTitle)
     el.addEventListener("click", selectJob)
     el.innerHTML = text
-
     div.appendChild(el)
 
     return div
@@ -1266,12 +1373,20 @@ function populateFetchPanel() {
     downloadSimBtn.classList.add("hpc-btns")
     downloadSimBtn.addEventListener("click", downloadSimResults)
 
+    // Open Explorer panel button
+    let openExplorerBtn = mhe.cf("button")
+    openExplorerBtn.id = "download-sim-btn"
+    openExplorerBtn.innerHTML = "OPEN EXPLORER"
+    openExplorerBtn.classList.add("hpc-btns")
+    openExplorerBtn.addEventListener("click", openExplorer)
+
     // 
     mhe.ge("fetch-body").appendChild(jobListTitle)
     mhe.ge("fetch-body").appendChild(jobList)
     mhe.ge("fetch-body").appendChild(checkSimBtn)
     mhe.ge("fetch-body").appendChild(fetchSimBtn)
     mhe.ge("fetch-body").appendChild(downloadSimBtn)
+    mhe.ge("fetch-body").appendChild(openExplorerBtn)
 }
 
 // Insert DOM elements in the RUN SIMULATION panel
@@ -1296,7 +1411,7 @@ function populateSubmitPanel() {
     sniffInput.setAttribute("type", "text")
     sniffInput.setAttribute("aria-label", "Default")
     sniffInput.setAttribute("aria-describedby", "sniff-span")
-    sniffInput.setAttribute("value", "200")
+    sniffInput.setAttribute("value", "500")
     sniffInput.setAttribute('disabled', '')
     sniffInput.classList.add("form-control", "input-param")
 
@@ -1486,6 +1601,7 @@ function createAccordionItem(header_id, collapse_id, button_content,
     for (let i = 0; i < button_classes.length; i++) {
         button.classList.add(button_classes[i])
     }
+    button.id = header_id + "-btn"
     button.setAttribute("type", "button")
     button.setAttribute("data-bs-toggle", "collapse")
     button.setAttribute("data-bs-target", "#" + collapse_id)
@@ -1664,4 +1780,17 @@ function selectDeselectAll() {
             allEls[elIdx].classList.remove("active");
         }
     }
+}
+
+function setExpirationTime() {
+    var today = new Date();
+    var priorDate = new Date(new Date().setDate(today.getDate() - 30));
+    let YY = priorDate.getFullYear()
+    let MM = priorDate.getMonth()
+    let HH = priorDate.getHours()
+    let mm = priorDate.getMinutes()
+    let ss = priorDate.getSeconds()
+    let allTime = [YY, MM, HH, mm, ss]
+    console.log(allTime)
+    return allTime
 }
