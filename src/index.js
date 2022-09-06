@@ -2,9 +2,10 @@ import _, { head, remove } from 'lodash'
 import './style.css'
 import 'jquery'
 
+import { writeFile, readFile } from 'fs-web';
 
 //import 'bootstrap'
-import 'bootstrap/dist/css/bootstrap.min.css'
+import 'bootstrap/dist/css/bootstrap.css'
 import { Modal } from 'bootstrap'
 
 import { GUI } from 'dat.gui'
@@ -114,15 +115,16 @@ initializeOidc(false)
 //
 function initializeOidc(forceReload = false) {
     var user_json = window.sessionStorage.getItem('user'); // check if user is already logged in
-    console.log("user_json", user_json)
+    // console.log("user_json", user_json)
 
-    if (forceReload || !user_json) {
+    if (forceReload || user_json === null) {
         m_oidc.init(localClientId, localRedirUrl); // run login
     } else {
         m_oidc.loginSilent(localClientId, localRedirUrl);
         var user = JSON.parse(user_json); // parse user json
         console.log("Silently logging in!")
     }
+
     access_token = user.access_token
 }
 
@@ -206,95 +208,99 @@ function generateSimulationId() {
     return simulationId
 }
 
-// get data to be used for exploring the model
-function getSimulationData(origin, jobTitle = "") {
-    checkTokenValidity()
-    waitingBootModal.show()
-    cleanAllCanvas()
-    let url, suffix, headers
 
+async function getSimulationData(origin="", jobTitle="") {
+    checkTokenValidity();
+    waitingBootModal.show();
+    cleanAllCanvas();
+   
+    let url, suffix, headers;
     if (origin == "") {
-        url = demoUrl
-        suffix = ""
-        mhe.ge("sim-id").innerHTML = "Sim title: DEMO"
+        url = demoUrl;
+        suffix = "";
+        mhe.ge("sim-id").innertText = "Sim title: DEMO";
         headers = {}
     } else {
-        mhe.ge("sim-id").innerHTML = "Sim title: " + jobTitle
-        url = origin
-        suffix = "/"
-        headers = { "Authorization": "Bearer " + access_token }
+        mhe.ge("sim-id").innerText = "Sim title: " + jobTitle;
+        url = origin;
+        suffix = "/";
+        headers = { "Authorization: ": "Bearer " + access_token };
     }
-    obmod.setModalMessage("waiting-modal-msg", "Loading simulated glomeruli positions")
-    axios.get(url + 'simgloms.json' + suffix, { headers: headers })
-        .then(simGloms => {
-            if (origin == "") {
-                var simulatedGlomsNum = simGloms["data"]["sim_gloms"]
-            } else {
-                var simulatedGlomsNum = JSON.parse(simGloms["data"])["sim_gloms"]
-            }
-            for (let sg of simulatedGlomsNum) {
-                simulatedGloms.push(sg.toString())
-            }
-            obmod.setModalMessage("waiting-modal-msg", "Loading simulated cells list")
-            axios.get(url + 'simcells.json' + suffix, { headers: headers })
-                .then(cellIds => {
-                    if (origin == "") {
-                        var simulatedCellIdsNum = cellIds["data"]["sim_cells"]
-
-                    } else {
-                        var simulatedCellIdsNum = JSON.parse(cellIds["data"])["sim_cells"]
-                    }
-                    for (let c of simulatedCellIdsNum) {
-                        simulatedCellIds.push(c.toString())
-                    }
-                    obmod.setModalMessage("waiting-modal-msg", "Loading simulated connections<br>... this might take a few minutes ...")
-                    axios.get(url + 'connections.json' + suffix, { headers: headers })
-                        .then(connections => {
-                            if (origin == "") {
-                                simulatedConnections = connections["data"]
-                            } else {
-                                simulatedConnections = JSON.parse(connections["data"])
-                            }
-                            obmod.setModalMessage("waiting-modal-msg", "Loading glomeruli positions")
-                            if (true) {
-                                axios.get(demoUrl + 'ob_dict.json')
-                                    .then(glomDict => {
-                                        allGlomCoord = glomDict.data.glom_coord
-                                        obmod.setModalMessage("waiting-modal-msg", "Loading granule cell positions<br>... this might take a few minutes ...")
-                                        localStorage.setItem("allGlomCoord", allGlomCoord)
-                                        axios.get(demoUrl + "granule_cells_red.json")
-                                            .then(granules => {
-                                                allGranulePositions = granules.data
-                                                localStorage.setItem("allGranulePositions", allGranulePositions)
-                                                axios.get(demoUrl + 'eta_norm.json')
-                                                    .then(odors => {
-                                                        odorValues = odors.data
-                                                        localStorage.setItem("odorValues", odorValues)
-                                                        obmod.setModalMessage("waiting-modal-msg", "Loading mitral/tufted cell positions")
-                                                        axios.get(demoUrl + 'all_mt_cells.json')
-                                                            .then(allMTCellsPos => {
-                                                                allMTCellsPositions = allMTCellsPos
-                                                                localStorage.setItem("allMTCellsPositions", allMTCellsPositions)
-                                                                initializeSceneContent()
-                                                                waitingBootModal.hide()
-                                                            })
-                                                    })
-
-                                            })
-                                    })
-                            } else {
-                                allGranulePositions = localStorage.getItem("allGranulePositions")
-                                odorValues = localStorage.getItem("odorValues")
-                                allMTCellsPositions = localStorage.getItem("allMTCellsPositions")
-                                allGlomCoord = localStorage.getItem("allGlomCoord")
-                                initializeSceneContent()
-                                waitingBootModal.hide()
-                            }
-                        })
-                })
-        })
     
+    obmod.setModalMessage("waiting-modal-msg", "Loading data...");
+
+    let simgloms = axios.get(url + "simgloms.json" + suffix, { headers: headers })
+        .then(response => {
+            for(let sg of response.data.sim_gloms) {
+                simulatedGloms.push(sg.toString());
+            }
+        }).catch(error => {
+            console.log(error);
+        })
+
+
+    let simcells = axios.get(url + "simcells.json" + suffix, { headers: headers })
+        .then(response => {
+            for (let c of response.data.sim_cells) {
+                simulatedCellIds.push(c.toString());
+            }
+        }).catch(error => {
+            console.log(error);
+        })
+
+    let connections = axios.get(url + "connections.json" + suffix, { headers: headers })
+        .then(response => {
+            simulatedConnections = response.data;
+        }).catch(error => {
+            console.log(error);
+        })
+
+    let ob_dict=null, granule_red_cells=null, eta_norm=null, all_mt_cells=null;
+
+    if (true) {
+        // ob_dict = axios.get(demoUrl + "ob_dict.json")
+        ob_dict = axios.get("http://127.0.0.1:8000/get-json/ob_dict.json")
+            .then(response => {
+                allGlomCoord = response.data.glom_coord;
+            }).catch(error => {
+                console.log(error);
+            })
+        
+        // granule_red_cells = axios.get(demoUrl + "granule_cells_red.json")
+        granule_red_cells = axios.get("http://127.0.0.1:8000/get-json/granule_cells_red.json")
+            .then(async response => {
+                allGranulePositions = response.data;
+            }).catch(error => {
+                console.log(error);
+            })
+
+        // eta_norm = axios.get(demoUrl + "eta_norm.json")
+        eta_norm = axios.get("http://127.0.0.1:8000/get-json/eta_norm.json")
+            .then(async response => {
+                odorValues = response.data;
+            }).catch(error => {
+                console.log(error);
+            })
+
+        // all_mt_cells = axios.get(demoUrl + "all_mt_cells.json")
+        all_mt_cells = axios.get("http://127.0.0.1:8000/get-json/all_mt_cells.json")
+            .then(async response => {
+                console.log("ALL_MT_CELLS COMPLETED");
+                allMTCellsPositions = response;
+            }).catch(error => {
+                console.log(error);
+            });
+    }
+
+    await simgloms, await simcells, await connections;
+    if (ob_dict !== null && granule_red_cells !== null && eta_norm !== null && all_mt_cells !== null) {
+        await ob_dict, await granule_red_cells, await eta_norm, await all_mt_cells;
+    }
+
+    initializeSceneContent();
+    waitingBootModal.hide(); 
 }
+
 
 // Set color array for plotting elements with gradient colors
 
@@ -1791,6 +1797,5 @@ function setExpirationTime() {
     let mm = priorDate.getMinutes()
     let ss = priorDate.getSeconds()
     let allTime = [YY, MM, HH, mm, ss]
-    console.log(allTime)
     return allTime
 }
