@@ -86,8 +86,9 @@ body {
 
     .list-group-item.job-active {
         border: solid !important;
-        border-color: darkslategrey !important;
-        border-width: 2px !important;
+        border-color: darkslategrey !important ;
+        border-width: .1rem !important;
+        transition: all ease-in-out 0.2s;
     }
 
 
@@ -349,11 +350,22 @@ body {
 .queue-job {
     background-color: #efe583 !important;
 }
+.queue-job.job-active {
+    background-color: #fff170 !important;
+}
 
 .failed-job {
     background-color: #ef9683 !important;
 }
+.failed-job.job-active {
+    background-color: #ff795b !important;
+}
 
 .success-job {
-    background-color: #83efa7 !important;
+    background-color: #94efb3 !important;
 }
+
+.success-job.job-active {
+    background-color:  #48ff85 !important;
+}
+

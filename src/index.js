@@ -88,9 +88,13 @@ let odorValues
 let visDelay = 500
 
 let access_token
+
 let OIDC_OP_USER_ENDPOINT = "https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/userinfo"
-let SA_DAINT_JOB_URL = 'https://corsproxy.hbpneuromorphic.eu/https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/'
-let SA_DAINT_FILE_URL = 'https://corsproxy.hbpneuromorphic.eu/https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/'
+let SA_DAINT_JOB_URL = 'https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/'
+let SA_DAINT_FILE_URL = 'https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/'
+
+let INTERNAL_FILE_PROVIDE = 'http://127.0.0.1:8000/'
+
 let redirect_url
 
 // ========================== AUTHENTICATION ====================================== 
@@ -224,7 +228,7 @@ async function getSimulationData(origin="", jobTitle="") {
         mhe.ge("sim-id").innerText = "Sim title: " + jobTitle;
         url = origin;
         suffix = "/";
-        headers = { "Authorization: ": "Bearer " + access_token };
+        headers = { "Authorization": "Bearer " + access_token };
     }
     
     obmod.setModalMessage("waiting-modal-msg", "Loading data...");
@@ -257,9 +261,9 @@ async function getSimulationData(origin="", jobTitle="") {
 
     let ob_dict=null, granule_red_cells=null, eta_norm=null, all_mt_cells=null;
 
-    if (true) {
+    if (origin == "") {
         // ob_dict = axios.get(demoUrl + "ob_dict.json")
-        ob_dict = axios.get("http://127.0.0.1:8000/get-json/ob_dict.json")
+        ob_dict = axios.get(INTERNAL_FILE_PROVIDE + "get-json/ob_dict.json")
             .then(response => {
                 allGlomCoord = response.data.glom_coord;
             }).catch(error => {
@@ -267,7 +271,7 @@ async function getSimulationData(origin="", jobTitle="") {
             })
         
         // granule_red_cells = axios.get(demoUrl + "granule_cells_red.json")
-        granule_red_cells = axios.get("http://127.0.0.1:8000/get-json/granule_cells_red.json")
+        granule_red_cells = axios.get(INTERNAL_FILE_PROVIDE + "get-json/granule_cells_red.json")
             .then(async response => {
                 allGranulePositions = response.data;
             }).catch(error => {
@@ -275,7 +279,7 @@ async function getSimulationData(origin="", jobTitle="") {
             })
 
         // eta_norm = axios.get(demoUrl + "eta_norm.json")
-        eta_norm = axios.get("http://127.0.0.1:8000/get-json/eta_norm.json")
+        eta_norm = axios.get(INTERNAL_FILE_PROVIDE + "get-json/eta_norm.json")
             .then(async response => {
                 odorValues = response.data;
             }).catch(error => {
@@ -283,9 +287,8 @@ async function getSimulationData(origin="", jobTitle="") {
             })
 
         // all_mt_cells = axios.get(demoUrl + "all_mt_cells.json")
-        all_mt_cells = axios.get("http://127.0.0.1:8000/get-json/all_mt_cells.json")
+        all_mt_cells = axios.get(INTERNAL_FILE_PROVIDE + "get-json/all_mt_cells.json")
             .then(async response => {
-                console.log("ALL_MT_CELLS COMPLETED");
                 allMTCellsPositions = response;
             }).catch(error => {
                 console.log(error);
@@ -411,6 +414,7 @@ function runSimulation() {
         axios.post(SA_DAINT_JOB_URL, {
         })
             .then(response => {
+                console.log(response);
                 waitingBootModal.hide()
             })
     }
@@ -1197,11 +1201,7 @@ function buildDOM() {
 function checkSimStatus() {
     obmod.setModalMessage("waiting-modal-msg", "Fetching job details")
     waitingBootModal.show()
-    axios.get(SA_DAINT_JOB_URL, {
-        headers: {
-            "Authorization": 'Bearer ' + access_token
-        }
-    })
+    axios.get(SA_DAINT_JOB_URL, { headers: { "Authorization": 'Bearer ' + access_token } })
         .catch(error => {
             console.log(error + "_ERROR")
             waitingBootModal.hide()
@@ -1260,6 +1260,7 @@ function fetchSim() {
         var selJobTitle = jobInfo[1]
     }
 
+    console.log(SA_DAINT_FILE_URL + selJobID + "/", selJobTitle);
     getSimulationData(SA_DAINT_FILE_URL + selJobID + "/", selJobTitle)
 }
 
@@ -1277,20 +1278,32 @@ function downloadSimResults() {
     }
     var fileUrl = SA_DAINT_FILE_URL + selJobID + "/"
 
-    fetch(fileUrl + "ob_sim_all.zip")
-        .then(resp => resp.blob())
-        .then(blob => {
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            // the filename you want
-            a.download = selJobTitle + "_ob_sim_all.zip";
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-        })
-        .catch(() => alert('oh no!'));
+    obmod.setModalMessage("waiting-modal-msg", "Downloading " + selJobTitle + " simulation zip...");
+    waitingBootModal.show();
+
+    axios({
+        url: fileUrl + "ob_sim_all.zip/",
+        method: "GET",
+        responseType: "blob",
+        headers: {"Authorization": "Bearer " + access_token},
+    }).then(response => {
+        console.log(response);
+
+        const href = URL.createObjectURL(response.data);
+        const link = document.createElement("a");
+
+        link.href = href;
+        link.setAttribute("download", "ob_sim_all.zip");
+        document.body.appendChild(link);
+        link.click();
+
+        document.body.removeChild(link);
+        URL.revokeObjectURL(href);
+    }).catch(error => {
+        console.log(error);
+        alert("something went wrong !");
+    }).finally(() => { waitingBootModal.hide() });
+
 }
 
 
