@@ -2,8 +2,6 @@ import _, { head, remove } from 'lodash'
 import './style.css'
 import 'jquery'
 
-import { writeFile, readFile } from 'fs-web';
-
 //import 'bootstrap'
 import 'bootstrap/dist/css/bootstrap.css'
 import { Modal } from 'bootstrap'
@@ -89,11 +87,13 @@ let visDelay = 500
 
 let access_token
 
-let OIDC_OP_USER_ENDPOINT = "https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/userinfo"
-let SA_DAINT_JOB_URL = 'https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/'
-let SA_DAINT_FILE_URL = 'https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/'
+let PROXY = "https://corsproxy.hbpneuromorphic.eu/"
 
-let INTERNAL_FILE_PROVIDE = 'http://127.0.0.1:8000/'
+let OIDC_OP_USER_ENDPOINT = "https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/userinfo"
+let SA_DAINT_JOB_URL = PROXY + "https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/"
+let SA_DAINT_FILE_URL = "https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/"
+
+let INTERNAL_FILE_PROVIDE = "https://olfactory-bulb.cineca.it/api/"
 
 let redirect_url
 
@@ -105,7 +105,6 @@ let localClientId
 let localRedirUrl
 if (window.location.href.includes("localhost")) {
     localClientId = 'localhost-test-2'
-    //localClientId = 'localhost-llb-dev'
     localRedirUrl = 'http://localhost:8080/callback.html'
 } else {
     localClientId = 'llb-olfactory-bulb'
@@ -119,7 +118,6 @@ initializeOidc(false)
 //
 function initializeOidc(forceReload = false) {
     var user_json = window.sessionStorage.getItem('user'); // check if user is already logged in
-    // console.log("user_json", user_json)
 
     if (forceReload || user_json === null) {
         m_oidc.init(localClientId, localRedirUrl); // run login
@@ -235,7 +233,13 @@ async function getSimulationData(origin="", jobTitle="") {
 
     let simgloms = axios.get(url + "simgloms.json" + suffix, { headers: headers })
         .then(response => {
-            for(let sg of response.data.sim_gloms) {
+	    let gloms = null;
+            if (typeof(response.data) === "string") {
+		gloms = (JSON.parse(response.data)).sim_gloms;
+	    } else {
+		gloms = response.data.sim_gloms;
+	    }
+	    for(let sg of gloms) {
                 simulatedGloms.push(sg.toString());
             }
         }).catch(error => {
@@ -245,7 +249,13 @@ async function getSimulationData(origin="", jobTitle="") {
 
     let simcells = axios.get(url + "simcells.json" + suffix, { headers: headers })
         .then(response => {
-            for (let c of response.data.sim_cells) {
+            let cells = null;
+	    if (typeof(response.data) === "string") {
+		cells = (JSON.parse(response.data)).sim_cells;
+	    } else {
+		cells = response.data.sim_cells;
+	    }
+	    for (let c of cells) {
                 simulatedCellIds.push(c.toString());
             }
         }).catch(error => {
@@ -254,6 +264,12 @@ async function getSimulationData(origin="", jobTitle="") {
 
     let connections = axios.get(url + "connections.json" + suffix, { headers: headers })
         .then(response => {
+	    let conns = null;
+	    if (typeof(response.data) === "string") {
+		conns = JSON.parse(response.data);
+	    } else {
+		conns = response.data;
+	    }
             simulatedConnections = response.data;
         }).catch(error => {
             console.log(error);
@@ -411,7 +427,7 @@ function runSimulation() {
             config.headers["Access-Control-Allow-Origin"] = "*"
             return config;
         });
-        axios.post(SA_DAINT_JOB_URL, {
+        axios.post(PROXY + SA_DAINT_JOB_URL, {
         })
             .then(response => {
                 console.log(response);
@@ -1204,13 +1220,14 @@ function checkSimStatus() {
     axios.get(SA_DAINT_JOB_URL, { headers: { "Authorization": 'Bearer ' + access_token } })
         .catch(error => {
             console.log(error + "_ERROR")
-            waitingBootModal.hide()
-            initializeOidc(true)
+            //waitingBootModal.hide()
+            //initializeOidc(true)
         })
         .then(jobList => populateJobList(jobList))
 }
 
 function populateJobList(jobList) {
+    console.log(jobList);
     let data = jobList["data"]
     let jobListDiv = mhe.ge("job-list-div")
     jobListDiv.innerHTML = ""
