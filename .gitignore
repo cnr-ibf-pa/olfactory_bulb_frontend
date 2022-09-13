@@ -5,7 +5,11 @@
 
 OIDC_CLIENT_TEST.json
 
-dist
+dist/
+
+package-lock.json
+
+
 # User-specific files
 *.rsuser
 *.suo
