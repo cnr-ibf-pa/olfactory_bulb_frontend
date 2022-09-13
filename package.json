@@ -28,7 +28,6 @@
     "colormap": "^2.3.2",
     "css-loader": "^6.7.1",
     "dat.gui": "^0.7.9",
-    "fs-web": "^1.0.1",
     "html-webpack-plugin": "^5.5.0",
     "javascript-color-gradient": "^2.4.4",
     "jquery": "^3.6.1",
