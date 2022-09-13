@@ -91,9 +91,9 @@ let PROXY = "https://corsproxy.hbpneuromorphic.eu/"
 
 let OIDC_OP_USER_ENDPOINT = "https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/userinfo"
 let SA_DAINT_JOB_URL = PROXY + "https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/"
-let SA_DAINT_FILE_URL = "https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/"
+let SA_DAINT_FILE_URL = PROXY + "https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/"
 
-let INTERNAL_FILE_PROVIDE = "https://olfactory-bulb.cineca.it/api/"
+let INTERNAL_FILE_PROVIDE = PROXY + "https://olfactory-bulb.cineca.it/api/"
 
 let redirect_url
 
@@ -106,6 +106,7 @@ let localRedirUrl
 if (window.location.href.includes("localhost")) {
     localClientId = 'localhost-test-2'
     localRedirUrl = 'http://localhost:8080/callback.html'
+    INTERNAL_FILE_PROVIDE = 'http://127.0.0.1:8000/'
 } else {
     localClientId = 'llb-olfactory-bulb'
     localRedirUrl = 'https://olfactory-bulb.cineca.it/callback.html'
@@ -183,7 +184,7 @@ let allMTCellsPositions = []
 const waitingBootModal = new Modal(mhe.ge('waiting-modal'), { keyboard: false })
 const messageBootModal = new Modal(mhe.ge('message-modal'), { keyboard: false })
 
-const demoUrl = "https://corsproxy.hbpneuromorphic.eu/https://object.cscs.ch:443/v1/AUTH_c0a333ecf7c045809321ce9d9ecdfdea/web-resources-bsp/data/olfactory-bulb/demo_sim/"
+const demoUrl = PROXY + "/https://object.cscs.ch:443/v1/AUTH_c0a333ecf7c045809321ce9d9ecdfdea/web-resources-bsp/data/olfactory-bulb/demo_sim/"
 
 window.addEventListener('resize', resize);
 
@@ -427,7 +428,7 @@ function runSimulation() {
             config.headers["Access-Control-Allow-Origin"] = "*"
             return config;
         });
-        axios.post(PROXY + SA_DAINT_JOB_URL, {
+        axios.post(SA_DAINT_JOB_URL, {
         })
             .then(response => {
                 console.log(response);
@@ -1219,7 +1220,7 @@ function checkSimStatus() {
     waitingBootModal.show()
     axios.get(SA_DAINT_JOB_URL, { headers: { "Authorization": 'Bearer ' + access_token } })
         .catch(error => {
-            console.log(error + "_ERROR")
+            console.log(error);
             //waitingBootModal.hide()
             //initializeOidc(true)
         })
@@ -1227,7 +1228,6 @@ function checkSimStatus() {
 }
 
 function populateJobList(jobList) {
-    console.log(jobList);
     let data = jobList["data"]
     let jobListDiv = mhe.ge("job-list-div")
     jobListDiv.innerHTML = ""
@@ -1237,6 +1237,7 @@ function populateJobList(jobList) {
         el.setAttribute("data-job-id", "none")
         jobListDiv.appendChild(el)
     } else {
+        let jobArray = new Array();
         for (let i = 0; i < data.length; i++) {
             let job = data[i]
             let jobTitle = job["title"]
@@ -1256,9 +1257,17 @@ function populateJobList(jobList) {
             } else if (stage == "DELETED") {
                 continue
             }
-            let el = createJobListEl(jobString, jobClass, jobId, jobTitle, stage)
-            jobListDiv.appendChild(el)
+            
+            let el = createJobListEl(jobString, jobClass, jobId, jobTitle, stage, Date.parse(initDate))
+            jobArray.push(el);
+            /* jobListDiv.appendChild(el) */
         }
+        jobArray.sort((a, b) => {
+            return b.firstChild.getAttribute("init-date") - a.firstChild.getAttribute("init-date");
+        })
+        jobArray.forEach((el) => {
+            jobListDiv.appendChild(el);
+        })
     }
     setTimeout(() => { waitingBootModal.hide(); }, 600);
 }
@@ -1277,7 +1286,6 @@ function fetchSim() {
         var selJobTitle = jobInfo[1]
     }
 
-    console.log(SA_DAINT_FILE_URL + selJobID + "/", selJobTitle);
     getSimulationData(SA_DAINT_FILE_URL + selJobID + "/", selJobTitle)
 }
 
@@ -1350,20 +1358,21 @@ function getSelectedJobInfo() {
 
 
 
-function createJobListEl(text, jobClass, jobId, jobTitle, stage) {
-    let div = mhe.cf("div")
+function createJobListEl(text, jobClass, jobId, jobTitle, stage, initDate) {
+    let div = mhe.cf("div");
+    let el = mhe.cf('a');
 
-    let el = mhe.cf('a')
-    el.classList.add("list-group-item", "list-group-item-action", "job-box-el", jobClass)
-    el.setAttribute("href", "#")
-    el.setAttribute("data-job-status", stage)
-    el.setAttribute("data-job-id", jobId)
-    el.setAttribute("data-job-title", jobTitle)
-    el.addEventListener("click", selectJob)
-    el.innerHTML = text
-    div.appendChild(el)
+    el.classList.add("list-group-item", "list-group-item-action", "job-box-el", jobClass);
+    el.setAttribute("href", "#");
+    el.setAttribute("data-job-status", stage);
+    el.setAttribute("data-job-id", jobId);
+    el.setAttribute("data-job-title", jobTitle);
+    el.setAttribute("init-date", initDate);
+    el.addEventListener("click", selectJob);
+    el.innerHTML = text;
+    div.appendChild(el);
 
-    return div
+    return div;
 }
 
 function selectJob() {
