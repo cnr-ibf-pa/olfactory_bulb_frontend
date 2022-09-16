@@ -174,17 +174,17 @@ var selected_tuft = "mitr--"
 var plottedNet = {}
 
 // data container
-let glom_list = [] // list of glomeurali ids ("0" -> "126") in string format
-let allGlomCoord = [] // dictionary with all glomeurli coordinates
-let simulatedCellIds = [] // 
-let simulatedGloms = []
-let simulatedConnections = []// all connections created during the simulation
-let allGranulePositions = []// dictionary of all granule cell positions
-let allMTCellsPositions = []
+var glom_list = [] // list of glomeurali ids ("0" -> "126") in string format
+var allGlomCoord = [] // dictionary with all glomeurli coordinates
+var simulatedCellIds = [] // 
+var simulatedGloms = []
+var simulatedConnections = []// all connections created during the simulation
+var allGranulePositions = []// dictionary of all granule cell positions
+var allMTCellsPositions = []
 const waitingBootModal = new Modal(mhe.ge('waiting-modal'), { keyboard: false })
 const messageBootModal = new Modal(mhe.ge('message-modal'), { keyboard: false })
 
-const demoUrl = PROXY + "/https://object.cscs.ch:443/v1/AUTH_c0a333ecf7c045809321ce9d9ecdfdea/web-resources-bsp/data/olfactory-bulb/demo_sim/"
+const demoUrl = PROXY + "https://object.cscs.ch:443/v1/AUTH_c0a333ecf7c045809321ce9d9ecdfdea/web-resources-bsp/data/olfactory-bulb/demo_sim/"
 
 window.addEventListener('resize', resize);
 
@@ -232,46 +232,48 @@ async function getSimulationData(origin="", jobTitle="") {
     
     obmod.setModalMessage("waiting-modal-msg", "Loading data...");
 
+    simulatedGloms = [];
     let simgloms = axios.get(url + "simgloms.json" + suffix, { headers: headers })
         .then(response => {
-	    let gloms = null;
+            let gloms = null;
             if (typeof(response.data) === "string") {
-		gloms = (JSON.parse(response.data)).sim_gloms;
-	    } else {
-		gloms = response.data.sim_gloms;
-	    }
-	    for(let sg of gloms) {
+                gloms = (JSON.parse(response.data)).sim_gloms;
+            } else {
+                gloms = response.data.sim_gloms;
+            }
+            for(let sg of gloms) {
                 simulatedGloms.push(sg.toString());
             }
         }).catch(error => {
             console.log(error);
         })
 
-
+    simulatedCellIds = [];
     let simcells = axios.get(url + "simcells.json" + suffix, { headers: headers })
         .then(response => {
             let cells = null;
-	    if (typeof(response.data) === "string") {
-		cells = (JSON.parse(response.data)).sim_cells;
-	    } else {
-		cells = response.data.sim_cells;
-	    }
-	    for (let c of cells) {
+            if (typeof(response.data) === "string") {
+                cells = (JSON.parse(response.data)).sim_cells;
+            } else {
+                cells = response.data.sim_cells;
+            }
+            for (let c of cells) {
                 simulatedCellIds.push(c.toString());
             }
         }).catch(error => {
             console.log(error);
         })
 
+    simulatedConnections = []
     let connections = axios.get(url + "connections.json" + suffix, { headers: headers })
         .then(response => {
 	    let conns = null;
-	    if (typeof(response.data) === "string") {
-		conns = JSON.parse(response.data);
-	    } else {
-		conns = response.data;
-	    }
-            simulatedConnections = response.data;
+            if (typeof(response.data) === "string") {
+                conns = JSON.parse(response.data);
+            } else {
+                conns = response.data;
+            }
+            simulatedConnections = conns;
         }).catch(error => {
             console.log(error);
         })
@@ -316,7 +318,6 @@ async function getSimulationData(origin="", jobTitle="") {
     if (ob_dict !== null && granule_red_cells !== null && eta_norm !== null && all_mt_cells !== null) {
         await ob_dict, await granule_red_cells, await eta_norm, await all_mt_cells;
     }
-
     initializeSceneContent();
     waitingBootModal.hide(); 
 }
@@ -375,9 +376,9 @@ function checkTokenValidity() {
         }
     })
         .catch(error => {
-            console.log(error + "_ERROR")
-            waitingBootModal.hide()
-            initializeOidc(true)
+            if (error.response.status == 403) {
+                initializeOidc(true);
+            }
         })
 }
 
@@ -540,7 +541,8 @@ function delay(time) {
 
 // Launch the addCell procedure depending on the selected cell
 function plotCell() {
-    let boxClass, cell
+
+    let boxClass;
     obmod.setModalMessage("waiting-modal-msg", "Plotting selected cells ...")
 
     waitingBootModal.show()
@@ -550,10 +552,11 @@ function plotCell() {
         } else {
             boxClass = "tuft-box-el"
         }
-        let cells = mhe.gecn(boxClass + " list-group-item active")
 
+        let cells = mhe.gecn(boxClass + " list-group-item active")
+        
         for (let idx = 0; idx < cells.length; idx++) {
-            cell = cells[idx].innerText
+            let cell = cells[idx].innerText
             if (Object.keys(plottedNet).includes(cell)) {
                 continue
             } else {
@@ -1221,8 +1224,10 @@ function checkSimStatus() {
     axios.get(SA_DAINT_JOB_URL, { headers: { "Authorization": 'Bearer ' + access_token } })
         .catch(error => {
             console.log(error);
+            if (error.response.status == 403) {
+                initializeOidc(true)
+            }
             //waitingBootModal.hide()
-            //initializeOidc(true)
         })
         .then(jobList => populateJobList(jobList))
 }
