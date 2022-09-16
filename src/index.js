@@ -93,7 +93,7 @@ let OIDC_OP_USER_ENDPOINT = "https://iam.ebrains.eu/auth/realms/hbp/protocol/ope
 let SA_DAINT_JOB_URL = PROXY + "https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/"
 let SA_DAINT_FILE_URL = PROXY + "https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/"
 
-let INTERNAL_FILE_PROVIDE = PROXY + "https://olfactory-bulb.cineca.it/api/"
+let INTERNAL_FILE_PROVIDE = "https://olfactory-bulb.cineca.it/api/"
 
 let redirect_url
 
