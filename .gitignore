@@ -6,6 +6,7 @@
 OIDC_CLIENT_TEST.json
 
 dist/
+.vscode/
 
 package-lock.json
 
