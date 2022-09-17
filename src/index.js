@@ -87,20 +87,17 @@ let visDelay = 500
 
 let access_token
 
-let PROXY = "https://corsproxy.hbpneuromorphic.eu/"
+const PROXY = "https://corsproxy.hbpneuromorphic.eu/"
 
-let OIDC_OP_USER_ENDPOINT = "https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/userinfo"
-let SA_DAINT_JOB_URL = PROXY + "https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/"
-let SA_DAINT_FILE_URL = PROXY + "https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/"
+var OIDC_OP_USER_ENDPOINT = "https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/userinfo"
+var SA_DAINT_JOB_URL = "https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/"
+var SA_DAINT_FILE_URL = "https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/"
 
-let INTERNAL_FILE_PROVIDE = "https://olfactory-bulb.cineca.it/api/"
+var INTERNAL_FILE_PROVIDE = "https://olfactory-bulb.cineca.it/api/"
 
-let redirect_url
 
 // ========================== AUTHENTICATION ====================================== 
 
-
-const redirectBase = window.location.href;
 let localClientId
 let localRedirUrl
 if (window.location.href.includes("localhost")) {
@@ -111,6 +108,8 @@ if (window.location.href.includes("localhost")) {
     localClientId = 'llb-olfactory-bulb'
     localRedirUrl = 'https://olfactory-bulb.cineca.it/callback.html'
 }
+
+console.log(INTERNAL_FILE_PROVIDE);
 
 import * as m_oidc from './handlers/auth.js';
 
@@ -169,7 +168,7 @@ let threeColorArrayGloms = setColorArray("#800000", "#ffff66", 127)
 // edit name
 var selected_glom = "glom--"
 var selected_mitr = "mitr--"
-var selected_tuft = "mitr--"
+var selected_tuft = "tuft--"
 
 var plottedNet = {}
 
@@ -282,6 +281,7 @@ async function getSimulationData(origin="", jobTitle="") {
 
     if (origin == "") {
         // ob_dict = axios.get(demoUrl + "ob_dict.json")
+        console.log(INTERNAL_FILE_PROVIDE);
         ob_dict = axios.get(INTERNAL_FILE_PROVIDE + "get-json/ob_dict.json")
             .then(response => {
                 allGlomCoord = response.data.glom_coord;
@@ -291,7 +291,7 @@ async function getSimulationData(origin="", jobTitle="") {
         
         // granule_red_cells = axios.get(demoUrl + "granule_cells_red.json")
         granule_red_cells = axios.get(INTERNAL_FILE_PROVIDE + "get-json/granule_cells_red.json")
-            .then(async response => {
+            .then(response => {
                 allGranulePositions = response.data;
             }).catch(error => {
                 console.log(error);
@@ -299,7 +299,7 @@ async function getSimulationData(origin="", jobTitle="") {
 
         // eta_norm = axios.get(demoUrl + "eta_norm.json")
         eta_norm = axios.get(INTERNAL_FILE_PROVIDE + "get-json/eta_norm.json")
-            .then(async response => {
+            .then(response => {
                 odorValues = response.data;
             }).catch(error => {
                 console.log(error);
@@ -307,7 +307,7 @@ async function getSimulationData(origin="", jobTitle="") {
 
         // all_mt_cells = axios.get(demoUrl + "all_mt_cells.json")
         all_mt_cells = axios.get(INTERNAL_FILE_PROVIDE + "get-json/all_mt_cells.json")
-            .then(async response => {
+            .then(response => {
                 allMTCellsPositions = response;
             }).catch(error => {
                 console.log(error);
@@ -1221,15 +1221,15 @@ function buildDOM() {
 function checkSimStatus() {
     obmod.setModalMessage("waiting-modal-msg", "Fetching job details")
     waitingBootModal.show()
-    axios.get(SA_DAINT_JOB_URL, { headers: { "Authorization": 'Bearer ' + access_token } })
+     axios.get(SA_DAINT_JOB_URL, { headers: { "Authorization": 'Bearer ' + access_token } })
         .catch(error => {
             console.log(error);
             if (error.response.status == 403) {
                 initializeOidc(true)
             }
-            //waitingBootModal.hide()
-        })
-        .then(jobList => populateJobList(jobList))
+            waitingBootModal.hide();
+            alert("Somenthing went wrong!");
+        }).then(jobList => populateJobList(jobList))
 }
 
 function populateJobList(jobList) {
