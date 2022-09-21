@@ -1,4 +1,4 @@
-import _, { head, remove } from 'lodash'
+import _ from 'lodash'
 import './style.css'
 import 'jquery'
 
@@ -43,7 +43,6 @@ granule: [1905-390516]
 blanes: [390517-390898]
 */
 
-var simulationId
 const glomeruliLimits = _.range(0, 127)
 const mcLimits = _.range(0, 635)
 const tmcLimits = _.range(636, 1905)
@@ -80,55 +79,35 @@ const granule_base_geometry = new THREE.SphereGeometry(granule_radius, granule_r
 const cameraPositions = [8855, -7873, 7045]
 const cameraFov = 20
 
-let currentGlomColor
-let odorValues
+var currentGlomColor
+var odorValues
 
 let visDelay = 500
 
-let access_token
+const BACKEND = window.location.href.includes("localhost") ? "https://localhost:8000/" : "https://olfactory-bulb.cineca.it/api/";
+const PROXY = BACKEND + "my-proxy/"
 
-const PROXY = "https://corsproxy.hbpneuromorphic.eu/"
-
-var OIDC_OP_USER_ENDPOINT = "https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/userinfo"
-var SA_DAINT_JOB_URL = "https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/"
-var SA_DAINT_FILE_URL = "https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/"
-
-var INTERNAL_FILE_PROVIDE = "https://olfactory-bulb.cineca.it/api/"
-
+const INTERNAL_FILE_PROVIDER = BACKEND + "get-json/";
+// const SA_DAINT_JOB_URL = "https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/"
+const SA_DAINT_JOB_URL = BACKEND + "get-jobs";
+const SA_DAINT_FILE_URL = "https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/";
 
 // ========================== AUTHENTICATION ====================================== 
 
-let localClientId
-let localRedirUrl
-if (window.location.href.includes("localhost")) {
-    localClientId = 'localhost-test-2'
-    localRedirUrl = 'http://localhost:8080/callback.html'
-    INTERNAL_FILE_PROVIDE = 'http://127.0.0.1:8000/'
-} else {
-    localClientId = 'llb-olfactory-bulb'
-    localRedirUrl = 'https://olfactory-bulb.cineca.it/callback.html'
-}
+import OidcManager from './handlers/auth.js'
 
-console.log(INTERNAL_FILE_PROVIDE);
+const oidcManager = new OidcManager();
 
-import * as m_oidc from './handlers/auth.js';
+/* 
+const userManager = oidcManager.getUserManager();
+userManager.events.addAccessTokenExpired(() => {
+    window.sessionStorage.setItem("simulatedCellIds", simulatedCellIds); 
+    window.sessionStorage.setItem("simulatedGloms", simulatedGloms); 
+    window.sessionStorage.setItem("simulatedConnections", simulatedConnections);
+})
 
-initializeOidc(false)
+var access_token = oidcManager.getAccessToken(userManager); */
 
-//
-function initializeOidc(forceReload = false) {
-    var user_json = window.sessionStorage.getItem('user'); // check if user is already logged in
-
-    if (forceReload || user_json === null) {
-        m_oidc.init(localClientId, localRedirUrl); // run login
-    } else {
-        m_oidc.loginSilent(localClientId, localRedirUrl);
-        var user = JSON.parse(user_json); // parse user json
-        console.log("Silently logging in!")
-    }
-
-    access_token = user.access_token
-}
 
 // ==================================================================================
 
@@ -173,13 +152,17 @@ var selected_tuft = "tuft--"
 var plottedNet = {}
 
 // data container
+
 var glom_list = [] // list of glomeurali ids ("0" -> "126") in string format
-var allGlomCoord = [] // dictionary with all glomeurli coordinates
+
 var simulatedCellIds = [] // 
 var simulatedGloms = []
 var simulatedConnections = []// all connections created during the simulation
+
+var allGlomCoord = [] // dictionary with all glomeurli coordinates
 var allGranulePositions = []// dictionary of all granule cell positions
 var allMTCellsPositions = []
+
 const waitingBootModal = new Modal(mhe.ge('waiting-modal'), { keyboard: false })
 const messageBootModal = new Modal(mhe.ge('message-modal'), { keyboard: false })
 
@@ -205,14 +188,10 @@ function generateSimulationId() {
     let hh = String(now.getHours()).padStart(2, '0');
     let min = String(now.getMinutes()).padStart(2, '0');
     let sec = String(now.getSeconds()).padStart(2, '0');
-    simulationId = "OB_" + yyyy + mm + dd + hh + min + sec;
-
-    return simulationId
+    return "OB_" + yyyy + mm + dd + hh + min + sec;
 }
 
-
 async function getSimulationData(origin="", jobTitle="") {
-    checkTokenValidity();
     waitingBootModal.show();
     cleanAllCanvas();
    
@@ -221,18 +200,18 @@ async function getSimulationData(origin="", jobTitle="") {
         url = demoUrl;
         suffix = "";
         mhe.ge("sim-id").innertText = "Sim title: DEMO";
-        headers = {}
+        headers = {};
     } else {
         mhe.ge("sim-id").innerText = "Sim title: " + jobTitle;
         url = origin;
         suffix = "/";
-        headers = { "Authorization": "Bearer " + access_token };
+        headers = { "Authorization": "Bearer " + oidcManager.getAccessToken() };
     }
     
     obmod.setModalMessage("waiting-modal-msg", "Loading data...");
 
     simulatedGloms = [];
-    let simgloms = axios.get(url + "simgloms.json" + suffix, { headers: headers })
+    let simgloms = axios.get(url + "simgloms.json" + suffix, headers)
         .then(response => {
             let gloms = null;
             if (typeof(response.data) === "string") {
@@ -248,7 +227,7 @@ async function getSimulationData(origin="", jobTitle="") {
         })
 
     simulatedCellIds = [];
-    let simcells = axios.get(url + "simcells.json" + suffix, { headers: headers })
+    let simcells = axios.get(url + "simcells.json" + suffix, headers)
         .then(response => {
             let cells = null;
             if (typeof(response.data) === "string") {
@@ -260,11 +239,12 @@ async function getSimulationData(origin="", jobTitle="") {
                 simulatedCellIds.push(c.toString());
             }
         }).catch(error => {
+            console.log("SIMCELLS ERROR ");
             console.log(error);
         })
 
     simulatedConnections = []
-    let connections = axios.get(url + "connections.json" + suffix, { headers: headers })
+    let connections = axios.get(url + "connections.json" + suffix, headers)
         .then(response => {
 	    let conns = null;
             if (typeof(response.data) === "string") {
@@ -280,33 +260,28 @@ async function getSimulationData(origin="", jobTitle="") {
     let ob_dict=null, granule_red_cells=null, eta_norm=null, all_mt_cells=null;
 
     if (origin == "") {
-        // ob_dict = axios.get(demoUrl + "ob_dict.json")
-        console.log(INTERNAL_FILE_PROVIDE);
-        ob_dict = axios.get(INTERNAL_FILE_PROVIDE + "get-json/ob_dict.json")
+        ob_dict = axios.get(INTERNAL_FILE_PROVIDE + "ob_dict.json")
             .then(response => {
                 allGlomCoord = response.data.glom_coord;
             }).catch(error => {
                 console.log(error);
             })
         
-        // granule_red_cells = axios.get(demoUrl + "granule_cells_red.json")
-        granule_red_cells = axios.get(INTERNAL_FILE_PROVIDE + "get-json/granule_cells_red.json")
+        granule_red_cells = axios.get(INTERNAL_FILE_PROVIDE + "granule_cells_red.json")
             .then(response => {
                 allGranulePositions = response.data;
             }).catch(error => {
                 console.log(error);
             })
 
-        // eta_norm = axios.get(demoUrl + "eta_norm.json")
-        eta_norm = axios.get(INTERNAL_FILE_PROVIDE + "get-json/eta_norm.json")
+        eta_norm = axios.get(INTERNAL_FILE_PROVIDE + "eta_norm.json")
             .then(response => {
                 odorValues = response.data;
             }).catch(error => {
                 console.log(error);
             })
 
-        // all_mt_cells = axios.get(demoUrl + "all_mt_cells.json")
-        all_mt_cells = axios.get(INTERNAL_FILE_PROVIDE + "get-json/all_mt_cells.json")
+        all_mt_cells = axios.get(INTERNAL_FILE_PROVIDE + "all_mt_cells.json")
             .then(response => {
                 allMTCellsPositions = response;
             }).catch(error => {
@@ -324,7 +299,6 @@ async function getSimulationData(origin="", jobTitle="") {
 
 
 // Set color array for plotting elements with gradient colors
-
 function setColorThreeArray(color1, color2, numColors, maxColorIdx) {
     let colorGradientArray = setColorArray(color1, color2, numColors)
 
@@ -337,12 +311,10 @@ function setColorThreeArray(color1, color2, numColors, maxColorIdx) {
 }
 
 function setColorArray(color1, color2, numColors) {
-
     const colorGradientArray = new Gradient()
         .setColorGradient(color1, color2)
         .setMidpoint(numColors)
         .getColors();
-
     return colorGradientArray
 }
 
@@ -369,32 +341,19 @@ function initializeSceneContent() {
  * *********
  */
 
-function checkTokenValidity() {
-    axios.get(SA_DAINT_JOB_URL, {
-        headers: {
-            "Authorization": 'Bearer ' + access_token
-        }
-    })
-        .catch(error => {
-            if (error.response.status == 403) {
-                initializeOidc(true);
-            }
-        })
-}
-
 function runSimulation() {
-    checkTokenValidity()
     let odor = mhe.gecn("od-sel-for-sim")
     let gloms = mhe.gecn("gl-sel-for-sim")
     let allGloms = " ["
+
     if (odor.length != 1 || gloms.length < 1) {
         obmod.setModalMessage("message-modal-msg", "<strong>One color</strong> and, at least, \
             <strong>one glomerulus</strong> must be selected before running \
             a simulation.")
         messageBootModal.show()
     } else {
-        waitingBootModal.show()
         obmod.setModalMessage("waiting-modal-msg", "Launching the simulation on the HPC system")
+        waitingBootModal.show()
         // create the string for the glomeruli to be simulated
         for (let glidx = 0; glidx < gloms.length; glidx++) {
             let id = gloms[glidx].id
@@ -407,7 +366,10 @@ function runSimulation() {
         let commandString = "sbatch /apps/hbp/ich002/cnr-software-utils/olfactory-bulb/olfactory-bulb-utils/ob_sim_launch.sh \
             " + allGloms + " . " + odor[0].id + " " + mhe.ge("sniff-input").value.toString()
 
+        console.log(commandString);
         // create payload
+        let simulationId = document.getElementById("sim-name-run").innerText.split("Simulation ID: ")[1];
+        
         let payload = {}
         payload["command"] = commandString
         payload["node_number"] = "2"
@@ -416,30 +378,19 @@ function runSimulation() {
         payload["title"] = simulationId
         payload["expiration_time"] = simulationId
 
-        // create headers
-        let config = {}
-        config["Authorization"] = "Bearer " + access_token
-        config["payload"] = JSON.stringify(payload);
-        config["Access-Control-Allow-Origin"] = '*';
+        waitingBootModal.hide();
 
-        axios.interceptors.request.use(function (config) {
-            const token = 'Bearer ' + access_token;
-            config.headers.Authorization = token;
-            config.headers["payload"] = JSON.stringify(payload);
-            config.headers["Access-Control-Allow-Origin"] = "*"
-            return config;
-        });
         axios.post(SA_DAINT_JOB_URL, {
-        })
-            .then(response => {
-                console.log(response);
-                waitingBootModal.hide()
-            })
-    }
-    // Create headers
-
+            Authorization: "Bearer " + oidcManager.getAccessToken(),
+            payload: JSON.stringify(payload)
+        }).then(response => {
+            alert('Job submitted correctly');
+        }).catch(error => {
+            console.log(error);
+            alert("Something went wrong.");
+        }).finally(() => { waitingBootModal.hide() });
+    } 
 }
-
 
 //
 function showGlomStrength() {
@@ -581,7 +532,7 @@ function plotGranuleCell(cell) {
             }
             var geometry = granule_base_geometry; // (radius, widthSegments, heightSegments)
             var material = new THREE.MeshStandardMaterial({
-                depthWrite: false, transparent: false,
+                depthWrite: true, transparent: false,
                 opacity: 1.0, wireframe: false,
                 color: threeColorArrayGC[strength.toString()]
             })
@@ -1218,18 +1169,20 @@ function buildDOM() {
     return;
 }
 
-function checkSimStatus() {
-    obmod.setModalMessage("waiting-modal-msg", "Fetching job details")
-    waitingBootModal.show()
-     axios.get(SA_DAINT_JOB_URL, { headers: { "Authorization": 'Bearer ' + access_token } })
-        .catch(error => {
-            console.log(error);
-            if (error.response.status == 403) {
-                initializeOidc(true)
-            }
-            waitingBootModal.hide();
-            alert("Somenthing went wrong!");
-        }).then(jobList => populateJobList(jobList))
+async function checkSimStatus() {
+    obmod.setModalMessage("waiting-modal-msg", "Fetching job details");
+    waitingBootModal.show();
+    axios.get(SA_DAINT_JOB_URL, {
+        headers: { "Authorization": "Bearer " + oidcManager.getAccessToken() }
+    }).then(jobList => {
+        populateJobList(jobList);
+    }).catch(error => {
+        if (error.response.status == 403) {
+            // alert("Unauthorized request.");
+        } else {
+            // alert("Something went wrong.");
+        }
+    }).finally(() => { waitingBootModal.hide() });
 }
 
 function populateJobList(jobList) {
@@ -1251,7 +1204,6 @@ function populateJobList(jobList) {
             let endDate = job["end_date"]
             let stage = job["stage"]
             let jobString = "JOB TITLE: <b>" + jobTitle + "</b> -- JOB STAGE: <b>" + stage + "</b><br>START: " + initDate + " -- END: " + endDate
-            //console.log(jobString)
             let jobClass = ""
             if (stage == "QUEUED") {
                 jobClass = "queue-job"
@@ -1265,7 +1217,6 @@ function populateJobList(jobList) {
             
             let el = createJobListEl(jobString, jobClass, jobId, jobTitle, stage, Date.parse(initDate))
             jobArray.push(el);
-            /* jobListDiv.appendChild(el) */
         }
         jobArray.sort((a, b) => {
             return b.firstChild.getAttribute("init-date") - a.firstChild.getAttribute("init-date");
@@ -1279,7 +1230,6 @@ function populateJobList(jobList) {
 
 // fetch and load simulation result files
 function fetchSim() {
-    checkTokenValidity()
     let jobInfo = getSelectedJobInfo()
     if (jobInfo == []) {
         obmod.setModalMessage("message-modal-msg", "No job selected.<br>Check \
@@ -1315,7 +1265,7 @@ function downloadSimResults() {
         url: fileUrl + "ob_sim_all.zip/",
         method: "GET",
         responseType: "blob",
-        headers: {"Authorization": "Bearer " + access_token},
+        headers: {"Authorization": "Bearer " + oidcManager.getAccessToken()},
     }).then(response => {
         console.log(response);
 
@@ -1338,11 +1288,8 @@ function downloadSimResults() {
 
 
 function openExplorer() {
-    //var fetchPanelBtn = mhe.ge("fetch-header-btn")
-    //fetchPanelBtn.classList.add("collapsed")
     var explorerPanelBtn = mhe.ge("explorer-header-btn")
     explorerPanelBtn.click()
-
 }
 
 function getSelectedJobInfo() {
@@ -1359,8 +1306,6 @@ function getSelectedJobInfo() {
     }
     return [selJobID, selJobTitle]
 }
-
-
 
 
 function createJobListEl(text, jobClass, jobId, jobTitle, stage, initDate) {
@@ -1537,8 +1482,6 @@ function populateSubmitPanel() {
         odorCol.appendChild(odorBtn)
         odorsRow.appendChild(odorCol)
     }
-
-
 
     // Insert title for the glomerulus selection panel
     let simGlomTitle = mhe.cf("h5")
@@ -1729,7 +1672,7 @@ function createSticks(vertices, type, cell, seg) {
         // Translate oriented stick to location between endpoints
         cylinder.translate((bx + ax) / 2, (by + ay) / 2, (bz + az) / 2)
 
-        const material = new THREE.MeshStandardMaterial({ depthWrite: false, color: type_colors[type] });
+        const material = new THREE.MeshStandardMaterial({ depthWrite: true, color: type_colors[type] });
         const mesh = new THREE.Mesh(cylinder, material);
 
 
@@ -1764,7 +1707,7 @@ function plotGlomeruli(data, simGloms) {
             glom_list.push(i.toString())
         }
         var geometry = glom_base_geometry; // (radius, widthSegments, heightSegments)
-        var material = new THREE.MeshStandardMaterial({ depthWrite: false, transparent: false, opacity: 1.0, wireframe: false, color: currentGlomColor })
+        var material = new THREE.MeshStandardMaterial({ depthWrite: true, transparent: false, opacity: 1.0, wireframe: false, color: currentGlomColor })
         var sphere = new THREE.Mesh(geometry, material)
         sphere.name = "glom_" + i.toString();
         sphere.position.set(data[i][0], data[i][1], data[i][2]);
