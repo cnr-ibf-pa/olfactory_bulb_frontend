@@ -88,8 +88,8 @@ const BACKEND = window.location.href.includes("localhost") ? "https://localhost:
 const PROXY = BACKEND + "my-proxy/"
 
 const INTERNAL_FILE_PROVIDER = BACKEND + "get-json/";
-// const SA_DAINT_JOB_URL = "https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/"
-const SA_DAINT_JOB_URL = BACKEND + "get-jobs";
+const SA_DAINT_JOB_URL = "https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/"
+// const SA_DAINT_JOB_URL = BACKEND + "get-jobs";
 const SA_DAINT_FILE_URL = "https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/";
 
 // ========================== AUTHENTICATION ====================================== 
@@ -205,7 +205,7 @@ async function getSimulationData(origin="", jobTitle="") {
         mhe.ge("sim-id").innerText = "Sim title: " + jobTitle;
         url = origin;
         suffix = "/";
-        headers = { "Authorization": "Bearer " + oidcManager.getAccessToken() };
+        headers = { headers: { "Authorization": "Bearer " + oidcManager.getAccessToken() }};
     }
     
     obmod.setModalMessage("waiting-modal-msg", "Loading data...");
@@ -260,28 +260,28 @@ async function getSimulationData(origin="", jobTitle="") {
     let ob_dict=null, granule_red_cells=null, eta_norm=null, all_mt_cells=null;
 
     if (origin == "") {
-        ob_dict = axios.get(INTERNAL_FILE_PROVIDE + "ob_dict.json")
+        ob_dict = axios.get(INTERNAL_FILE_PROVIDER + "ob_dict.json")
             .then(response => {
                 allGlomCoord = response.data.glom_coord;
             }).catch(error => {
                 console.log(error);
             })
         
-        granule_red_cells = axios.get(INTERNAL_FILE_PROVIDE + "granule_cells_red.json")
+        granule_red_cells = axios.get(INTERNAL_FILE_PROVIDER + "granule_cells_red.json")
             .then(response => {
                 allGranulePositions = response.data;
             }).catch(error => {
                 console.log(error);
             })
 
-        eta_norm = axios.get(INTERNAL_FILE_PROVIDE + "eta_norm.json")
+        eta_norm = axios.get(INTERNAL_FILE_PROVIDER + "eta_norm.json")
             .then(response => {
                 odorValues = response.data;
             }).catch(error => {
                 console.log(error);
             })
 
-        all_mt_cells = axios.get(INTERNAL_FILE_PROVIDE + "all_mt_cells.json")
+        all_mt_cells = axios.get(INTERNAL_FILE_PROVIDER + "all_mt_cells.json")
             .then(response => {
                 allMTCellsPositions = response;
             }).catch(error => {
@@ -366,7 +366,6 @@ function runSimulation() {
         let commandString = "sbatch /apps/hbp/ich002/cnr-software-utils/olfactory-bulb/olfactory-bulb-utils/ob_sim_launch.sh \
             " + allGloms + " . " + odor[0].id + " " + mhe.ge("sniff-input").value.toString()
 
-        console.log(commandString);
         // create payload
         let simulationId = document.getElementById("sim-name-run").innerText.split("Simulation ID: ")[1];
         
@@ -380,9 +379,11 @@ function runSimulation() {
 
         waitingBootModal.hide();
 
-        axios.post(SA_DAINT_JOB_URL, {
-            Authorization: "Bearer " + oidcManager.getAccessToken(),
-            payload: JSON.stringify(payload)
+        axios.post(SA_DAINT_JOB_URL, {}, {
+	    headers: {
+            	Authorization: "Bearer " + oidcManager.getAccessToken(),
+            	payload: JSON.stringify(payload)
+	    }
         }).then(response => {
             alert('Job submitted correctly');
         }).catch(error => {

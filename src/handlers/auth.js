@@ -83,7 +83,8 @@ export default class OidcManager {
     }
 
     getAccessToken() {
-        return this.#user.access_token;
+	this.loadUser();
+	return this.#user.access_token;
     }
 
     getUser() {
