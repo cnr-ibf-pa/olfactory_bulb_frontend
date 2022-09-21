@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+    </head>
+
+    <body>
+        <script src='https://cdnjs.cloudflare.com/ajax/libs/oidc-client/1.11.5/oidc-client.min.js'></script>
+        <script>
+            Oidc.Log.Logger = console;
+            var mgr = new Oidc.UserManager({userStore: new Oidc.WebStorageStateStore({ store: window.localStorage })});      
+            mgr.signinSilentCallback()
+               .catch((err) => {
+                    console.log(err);
+                });
+        </script>
+    </body>
+</html>

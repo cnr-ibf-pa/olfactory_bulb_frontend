@@ -1,75 +1,92 @@
-import  Oidc from 'oidc-client';
+import { UserManager, WebStorageStateStore, Log } from "oidc-client";
+import * as dev from "./dev-config.js";
+import * as prod from "./prod-config.js"
 
-// comes from rollup.config.js
-// declare var processEnvs: any
+Log.logger = console;
 
-function createAuthConfig(clientId, redirUrl) {
 
-  const settings = {
-    authority: 'https://iam.ebrains.eu/auth/realms/hbp',
-    authorization_endpoint: 'https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/auth', 
-    userinfo_endpoint: 'https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/userinfo',
-    //client_id: 'localhost-test-2',
-    //redirect_uri: 'http://localhost:8080/callback.html',
-      client_id: clientId,
-      redirect_uri: redirUrl,
-    scope: 'openid profile email',    
-    response_type: 'id_token token',
-    userStore: new Oidc.WebStorageStateStore({ store : window.localStorage }),
-  }
-  return settings;
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function login(authMgr) {
-  saveUrl(window.location.href);
-  return authMgr.signinRedirect();
+
+function getUserManagerSettings() {
+    /*** these fields are taken from dev-config or prod-config ***
+    authority,
+    authorization_endpoint,
+    userinfo_endpoint,
+    client_id,
+    redirect_uri,
+    silent_redirect_uri,
+    */
+
+    let generalConfig = {
+        automaticSilentRenew: true,
+        scope: 'openid profile email',
+        response_type: 'id_token token',
+        userStore: new WebStorageStateStore({ store : window.localStorage })
+    }
+
+    if (window.location.href.includes("localhost")) {
+        return Object.assign(generalConfig, dev.getConfig());
+    } 
+    return Object.assign(generalConfig, prod.getConfig());
 }
 
-async function loginSilent(clientId, redirUrl) {
-  const authMgr = createAuthManager(clientId, redirUrl);
-  await authMgr.signinSilent();
-}
 
-function createAuthManager(clientId, redirUrl) {
-  const oidcConfig = createAuthConfig(clientId, redirUrl);
-  const authMgr = new Oidc.UserManager(oidcConfig);
-  return authMgr;
-}
+export default class OidcManager {
 
-function init(clientId, redirUrl) {
-  clientId = clientId
-  redirUrl = redirUrl
-  const authMgr = createAuthManager(clientId, redirUrl)
-  return login(authMgr);
-  //  return loginSilent(authMgr);
-}
+    #mgr = null;
+    #user = null;
 
-async function getUserInfo() {
-  const authMgr = createAuthManager(clientId, redirUrl);
-  const user = await authMgr.getUser();
-  return user;
-}
+    constructor() {
+        this.#mgr = new UserManager(getUserManagerSettings());
+        this.loadUser();
+        this.#mgr.getUser().then(user =>{
+            if (user == null || user.expired) {
+                this.#mgr.signinRedirect();
+            }
+            this.#user = user;
+        });
 
-export const storageKeys = {
-  SAVED_URL: 'urlParam',
-  SELECTED_USECASE: 'selectedUsecase',
-  RETURN_LOGIN: 'returnFromLogin',
-  MODELS_LIST: 'modelsList',
-  SELECTED_COLLAB: 'selectedCollab',
-  SELECTED_CATEGORY: 'selectedCategory',
-};
+        this.#mgr.events.addSilentRenewError((error) => {
+            console.log("ERROR ON SILENT LOGIN");
+            console.log(error);
+            console.log(this.#user);
+            console.log(this.#user.expired);
+        })
 
-export function saveUrl(url) {
-  sessionStorage.setItem(storageKeys.SAVED_URL, url);
-}
-export function getSavedUrl() {
-  return sessionStorage.getItem(storageKeys.SAVED_URL);
-}
+        this.#mgr.events.addAccessTokenExpiring(() => {
+            console.log("THE TOKEN IS EXPIRING");
+        })
+        this.#mgr.events.addAccessTokenExpired(() => {
+            console.log("THE TOKEN IS EXPIRED");
+            this.silentLogin();
+        })
+    }
 
-export default init;
+    async loadUser() {
+        await this.#mgr.getUser().then(user => {
+            if (user == null || user.expired) {
+                this.#mgr.signinRedirect();
+            }
+            this.#user = user;
+        })
+    }
 
-export {
-  init,
-  getUserInfo,
-  loginSilent,
+    silentLogin() {
+        this.#mgr.signinSilent();
+    }
+
+    getUserManager() {
+        return this.#mgr;
+    }
+
+    getAccessToken() {
+        return this.#user.access_token;
+    }
+
+    getUser() {
+        return this.#user;
+    }
 }

@@ -11,6 +11,7 @@ module.exports = {
         static: './dist',
         allowedHosts: "all",
         host: 'localhost',
+        https: true,
     },
     plugins: [
         new HtmlWebpackPlugin({
@@ -21,6 +22,12 @@ module.exports = {
             inject: true,
             chunks: ['callback'],
             filename: 'callback.html'
+        }),
+        new HtmlWebpackPlugin({
+            template: './src/silent-renew.html',
+            inject: true,
+            chunks: ['silent-renew'],
+            filename: 'silent-renew.html'
         })
     ],
     output: {
