@@ -1,6 +1,6 @@
 import { UserManager, WebStorageStateStore, Log } from "oidc-client";
-import * as dev from "./dev-config.js";
-import * as prod from "./prod-config.js"
+import * as dev from "../utils/dev-config.js";
+import * as prod from "../utils/prod-config.js"
 
 Log.logger = console;
 
@@ -83,8 +83,8 @@ export default class OidcManager {
     }
 
     getAccessToken() {
-	this.loadUser();
-	return this.#user.access_token;
+        this.loadUser();
+        return this.#user.access_token;
     }
 
     getUser() {
