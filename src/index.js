@@ -1,5 +1,5 @@
 import _ from 'lodash'
-import './style.css'
+import '../static/style.css'
 import 'jquery'
 
 //import 'bootstrap'
@@ -88,8 +88,8 @@ const BACKEND = window.location.href.includes("localhost") ? "https://localhost:
 const PROXY = BACKEND + "my-proxy/"
 
 const INTERNAL_FILE_PROVIDER = BACKEND + "get-json/";
-const SA_DAINT_JOB_URL = "https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/"
-// const SA_DAINT_JOB_URL = BACKEND + "get-jobs";
+// const SA_DAINT_JOB_URL = "https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/"
+const SA_DAINT_JOB_URL = BACKEND + "jobs";
 const SA_DAINT_FILE_URL = "https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/";
 
 // ========================== AUTHENTICATION ====================================== 
@@ -293,6 +293,7 @@ async function getSimulationData(origin="", jobTitle="") {
     if (ob_dict !== null && granule_red_cells !== null && eta_norm !== null && all_mt_cells !== null) {
         await ob_dict, await granule_red_cells, await eta_norm, await all_mt_cells;
     }
+
     initializeSceneContent();
     waitingBootModal.hide(); 
 }
@@ -382,7 +383,8 @@ function runSimulation() {
         axios.post(SA_DAINT_JOB_URL, {}, {
 	    headers: {
             	Authorization: "Bearer " + oidcManager.getAccessToken(),
-            	payload: JSON.stringify(payload)
+            	payload: JSON.stringify(payload),
+                "X-CSRFToken": getCSRFToken(),
 	    }
         }).then(response => {
             alert('Job submitted correctly');
