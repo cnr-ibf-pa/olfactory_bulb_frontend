@@ -7,7 +7,14 @@
 
 OIDC_CLIENT_TEST.json
 
-dist
+dist/
+.vscode/
+
+package-lock.json
+
+./handlers/dev-config.js
+./handlers/prod-config.js
+
 # User-specific files
 *.rsuser
 *.suo

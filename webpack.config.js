@@ -11,16 +11,23 @@ module.exports = {
         static: './dist',
         allowedHosts: "all",
         host: 'localhost',
+        // https: true,
     },
     plugins: [
         new HtmlWebpackPlugin({
             title: 'Olfactory Bulb',
         }),
         new HtmlWebpackPlugin({
-            template: './src/callback.html',
+            template: './static/callback.html',
             inject: true,
             chunks: ['callback'],
             filename: 'callback.html'
+        }),
+        new HtmlWebpackPlugin({
+            template: './static/silent-renew.html',
+            inject: true,
+            chunks: ['silent-renew'],
+            filename: 'silent-renew.html'
         })
     ],
     output: {

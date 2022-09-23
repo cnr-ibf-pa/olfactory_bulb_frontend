@@ -11,14 +11,11 @@
     <script src='https://cdnjs.cloudflare.com/ajax/libs/oidc-client/1.11.5/oidc-client.min.js'></script>
     <script>
       console.debug('entering callback.html');
-      var mgr = new Oidc.UserManager({userStore: new Oidc.WebStorageStateStore({ store: window.localStorage })});
-      
-      mgr.signinRedirectCallback().then(function (user) {
-        window.sessionStorage.setItem('user', JSON.stringify(user));
+      Oidc.Log.logger = console;
+      var mgr = new Oidc.UserManager({userStore: new Oidc.WebStorageStateStore({ store: window.localStorage })});      
+      mgr.signinRedirectCallback().then(user => {
         window.location.href = "/";
-      }).catch(function (err) {
-        console.error(err);
-      });
+      })
     </script>
   </body>
 
