@@ -1276,7 +1276,7 @@ function downloadSimResults() {
         const link = document.createElement("a");
 
         link.href = href;
-        link.setAttribute("download", "ob_sim_all.zip");
+        link.setAttribute("download", selJobTitle + ".zip");
         document.body.appendChild(link);
         link.click();
 
