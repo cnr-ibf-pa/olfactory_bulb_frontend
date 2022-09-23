@@ -1265,7 +1265,7 @@ function downloadSimResults() {
     waitingBootModal.show();
 
     axios({
-        url: fileUrl + selJobTitle + "/",
+        url: fileUrl + selJobTitle + ".zip/",
         method: "GET",
         responseType: "blob",
         headers: {"Authorization": "Bearer " + oidcManager.getAccessToken()},
