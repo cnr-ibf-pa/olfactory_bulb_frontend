@@ -88,8 +88,8 @@ const BACKEND = window.location.href.includes("localhost") ? "https://localhost:
 const PROXY = BACKEND + "my-proxy/"
 
 const INTERNAL_FILE_PROVIDER = BACKEND + "get-json/";
-// const SA_DAINT_JOB_URL = "https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/"
-const SA_DAINT_JOB_URL = BACKEND + "jobs";
+const SA_DAINT_JOB_URL = "https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/"
+// const SA_DAINT_JOB_URL = BACKEND + "jobs";
 const SA_DAINT_FILE_URL = "https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/";
 
 // ========================== AUTHENTICATION ====================================== 
@@ -363,13 +363,13 @@ function runSimulation() {
         }
         allGloms = allGloms.slice(0, -1) + "] "
 
-        // command string
-        let commandString = "sbatch /apps/hbp/ich002/cnr-software-utils/olfactory-bulb/olfactory-bulb-utils/ob_sim_launch.sh \
-            " + allGloms + " . " + odor[0].id + " " + mhe.ge("sniff-input").value.toString()
-
-        // create payload
         let simulationId = document.getElementById("sim-name-run").innerText.split("Simulation ID: ")[1];
         
+        // command string
+        let commandString = "sbatch /apps/hbp/ich002/cnr-software-utils/olfactory-bulb/olfactory-bulb-utils/ob_sim_launch.sh \
+            " + allGloms + " . " + odor[0].id + " " + mhe.ge("sniff-input").value.toString() + " " + simulationId;
+
+        // create payload
         let payload = {}
         payload["command"] = commandString
         payload["node_number"] = "2"
@@ -384,7 +384,6 @@ function runSimulation() {
 	    headers: {
             	Authorization: "Bearer " + oidcManager.getAccessToken(),
             	payload: JSON.stringify(payload),
-                "X-CSRFToken": getCSRFToken(),
 	    }
         }).then(response => {
             alert('Job submitted correctly');
@@ -1259,13 +1258,14 @@ function downloadSimResults() {
         var selJobID = jobInfo[0]
         var selJobTitle = jobInfo[1]
     }
+
     var fileUrl = SA_DAINT_FILE_URL + selJobID + "/"
 
     obmod.setModalMessage("waiting-modal-msg", "Downloading " + selJobTitle + " simulation zip...");
     waitingBootModal.show();
 
     axios({
-        url: fileUrl + "ob_sim_all.zip/",
+        url: fileUrl + selJobTitle + "/",
         method: "GET",
         responseType: "blob",
         headers: {"Authorization": "Bearer " + oidcManager.getAccessToken()},
