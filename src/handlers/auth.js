@@ -1,14 +1,6 @@
-import { UserManager, WebStorageStateStore, Log } from "oidc-client";
+import { UserManager, WebStorageStateStore } from "oidc-client";
 import * as dev from "../utils/dev-config.js";
 import * as prod from "../utils/prod-config.js"
-
-Log.logger = console;
-
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 
 function getUserManagerSettings() {
     /*** these fields are taken from dev-config or prod-config ***
@@ -41,7 +33,6 @@ export default class OidcManager {
 
     constructor() {
         this.#mgr = new UserManager(getUserManagerSettings());
-        this.loadUser();
         this.#mgr.getUser().then(user =>{
             if (user == null || user.expired) {
                 this.#mgr.signinRedirect();
@@ -52,12 +43,11 @@ export default class OidcManager {
         this.#mgr.events.addSilentRenewError((error) => {
             console.log("ERROR ON SILENT LOGIN");
             console.log(error);
-            console.log(this.#user);
-            console.log(this.#user.expired);
         })
 
         this.#mgr.events.addAccessTokenExpiring(() => {
             console.log("THE TOKEN IS EXPIRING");
+            this.silentLogin();
         })
         this.#mgr.events.addAccessTokenExpired(() => {
             console.log("THE TOKEN IS EXPIRED");
