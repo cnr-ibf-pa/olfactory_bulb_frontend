@@ -1,17 +1,16 @@
 import _ from 'lodash'
 import '../static/style.css'
-import 'jquery'
 
 //import 'bootstrap'
 import 'bootstrap/dist/css/bootstrap.css'
 import { Modal } from 'bootstrap'
 
 import { GUI } from 'dat.gui'
-//import { Gradient } from "javascript-color-gradient"
 import Gradient from "javascript-color-gradient"
 
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+// import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { ArcballControls } from 'three/examples/jsm/controls/ArcballControls';
 
 import EBRAINS_logo from "../static/img/ebrains_logo.svg"
 import infoLogo from "../static/img/info-circle.svg"
@@ -19,8 +18,8 @@ import infoLogo from "../static/img/info-circle.svg"
 import colorMap from "../static/img/colorMap.svg"
 
 const axios = require('axios');
-const mhe = require('./manageHtmlElements')
-const obmod = require('./obModals')
+const mhe = require('./utils/manageHtmlElements')
+const obmod = require('./utils/obModals')
 
 let colormap = require('colormap')
 let colorMapGlShades = 10
@@ -76,7 +75,7 @@ const granule_resolution = 6
 
 const granule_base_geometry = new THREE.SphereGeometry(granule_radius, granule_resolution, granule_resolution);
 
-const cameraPositions = [8855, -7873, 7045]
+const cameraPositions = [-2591, 2008, -11468]
 const cameraFov = 20
 
 var currentGlomColor
@@ -133,8 +132,15 @@ const renderer = new THREE.WebGLRenderer({
     alpha: true,
     antialias: true
 })
-var controls = new OrbitControls(camera, renderer.domElement);
-camera.position.set(cameraPositions[0], cameraPositions[1], cameraPositions[2])
+// var controls = new OrbitControls(camera, renderer.domElement);
+const controls = new ArcballControls(camera, document.getElementById("v_canvas"), scene);
+controls.setTbRadius(0.3);
+controls.setGizmosVisible(false);
+
+
+controls.addEventListener("change", () => {
+    renderer.render(scene, camera);
+})
 
 let threeColorArrayGC = setColorThreeArray("#023f48", "#ccfdcc", 200, 100)
 let threeColorArrayCell = setColorThreeArray("#800000", "#ffffff", 200, 100)
@@ -176,8 +182,7 @@ animate()
 
 setExpirationTime()
 getSimulationData("")
-//createGUI()
-
+createGUI()
 
 // generate simulation name
 function generateSimulationId() {
@@ -295,7 +300,7 @@ async function getSimulationData(origin="", jobTitle="") {
     }
 
     initializeSceneContent();
-    waitingBootModal.hide(); 
+    waitingBootModal.hide();
 }
 
 
@@ -334,6 +339,9 @@ function initializeSceneContent() {
     populateCellDropdown("glom", glom_ids)
     populateCellDropdown("mitr", [])
     populateCellDropdown("tuft", [])
+
+    camera.position.set(cameraPositions[0], cameraPositions[1], cameraPositions[2])
+    controls.update();  
 }
 
 /*
@@ -548,7 +556,7 @@ function plotGranuleCell(cell) {
             scene.add(sphere);
         }
     }
-    renderer.render(scene, camera);
+    // renderer.render(scene, camera);
 }
 
 // Remove cell from canvas
@@ -614,7 +622,7 @@ function createScene() {
     pointLight.position.set(0, 0, 0)
     pointLight2.position.set(0, 0, 30000)
     pointLight3.position.set(0, 5000, 0)
-    //pointLight4.position.set(6000, 0, 0)
+    pointLight4.position.set(6000, 0, 0)
     scene.add(pointLight)
     scene.add(pointLight2)
     scene.add(pointLight3)
@@ -626,20 +634,48 @@ function createScene() {
     renderer.setSize(sizes.width, sizes.height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    controls.update()
-    camera.position.set(cameraPositions[0], cameraPositions[1], cameraPositions[2])
-    renderer.render(scene, camera);
+    // camera.position.set(cameraPositions[0], cameraPositions[1], cameraPositions[2])
+    // controls.update()
+    // renderer.render(scene, camera);
 }
 
+
 function createGUI() {
-    const gui = new GUI()
+    var parameters = {
+        a: false,
+        b: 0.3, 
+        c: "#000000",
+    }
 
-    const cameraFolder = gui.addFolder('Camera Controls')
-
-    cameraFolder.add(camera.position, 'x', -100000, 100000).listen()
-    cameraFolder.add(camera.position, 'y', -100000, 100000).listen()
-    cameraFolder.add(camera.position, 'z', -200000, 200000).listen()
-    cameraFolder.open()
+    const gui = new GUI();
+    var panelHeight = document.getElementById("banner").offsetHeight;
+    gui.domElement.parentNode.style.top = (panelHeight + 10).toString() + "px";
+    
+    const visualizationFolder = gui.addFolder("Scene");
+    var background = visualizationFolder.addColor(parameters, 'c').name("Background").listen();
+    
+    const gizmosFolder = visualizationFolder.addFolder("Gizmos");
+    var show = gizmosFolder.add(parameters, 'a').name("Show").listen()
+    var size = gizmosFolder.add(parameters, 'b').name("Size").min(0).max(1).step(0.01).listen();
+    
+    const cameraFolder = gui.addFolder('Camera');
+    cameraFolder.add(camera.position, 'x', -10000, 10000).step(1).listen();
+    cameraFolder.add(camera.position, 'y', -10000, 10000).step(1).listen();
+    cameraFolder.add(camera.position, 'z', -20000, 20000).step(1).listen();
+  
+    show.onChange((value) => {
+        controls.setGizmosVisible(value);
+    })
+    size.onChange((value) => {
+        controls.setTbRadius(value);
+    })
+    background.onChange(color => {
+        scene.background = new THREE.Color(color);
+    })
+    
+    visualizationFolder.open();
+    gizmosFolder.open();
+    cameraFolder.open();
 }
 
 // highlight element when hovering over
@@ -777,9 +813,8 @@ function selectGlom() {
 
 // Animate
 function animate() {
-    controls.update();
-    renderer.render(scene, camera);
     requestAnimationFrame(animate);
+    renderer.render(scene, camera);
 }
 
 function populateCellDropdown(elType, elementList) {
@@ -1103,6 +1138,7 @@ function buildDOM() {
     // visualizer container
     let visualizer = mhe.cf('div')
     visualizer.classList.add('row')
+    visualizer.id = 'visualizer';
 
     let v_params = mhe.cf('div')
     v_params.classList.add('col', 'params')
@@ -1125,10 +1161,17 @@ function buildDOM() {
     let fetch_item = createAccordionItem("fetch-header", "fetch-collapse", "FETCH RESULTS",
         "action-accordion", "", ["collapse"], ["collapsed"], fetchMainPanel)
 
-    // append items to accordion
+    // let visualizationMainPanel = "visualization-body";
+    // let visualization_item = createAccordionItem("visualization-header", "visualization-collapse", "VISUALIZATION CONTROLS",
+        // "action-accordion", "", ["collapse"], ["collapsed"], visualizationMainPanel);
+    
+        // append items to accordion
     v_accordion.appendChild(explorer_item)
     v_accordion.appendChild(submit_item)
     v_accordion.appendChild(fetch_item)
+    // v_accordion.appendChild(visualization_item);
+
+    // buildVisualizationPanel();
 
     //
     let v_canvas_div = mhe.cf('div')
@@ -1717,7 +1760,7 @@ function plotGlomeruli(data, simGloms) {
         scene.add(sphere);
         plottedNet[sphere.name] = [sphere.uuid]
     }
-    renderer.render(scene, camera);
+    // renderer.render(scene, camera);
 
     return glom_list
 }
@@ -1741,7 +1784,7 @@ function addCell(data, cell) {
         }
     }
     plotGranuleCell(cell)
-    renderer.render(scene, camera);
+    // renderer.render(scene, camera);
 }
 
 // Select/Deselect all mitral/tufted cells
