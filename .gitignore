@@ -12,8 +12,7 @@ dist/
 
 package-lock.json
 
-./handlers/dev-config.js
-./handlers/prod-config.js
+config/
 
 # User-specific files
 *.rsuser

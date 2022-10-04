@@ -11,7 +11,7 @@ module.exports = {
         static: './dist',
         allowedHosts: "all",
         host: 'localhost',
-        // https: true,
+        https: true,
     },
     plugins: [
         new HtmlWebpackPlugin({

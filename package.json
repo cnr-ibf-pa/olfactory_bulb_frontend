@@ -30,7 +30,6 @@
     "dat.gui": "^0.7.9",
     "html-webpack-plugin": "^5.5.0",
     "javascript-color-gradient": "^2.4.4",
-    "jquery": "^3.6.1",
     "jsdom": "^20.0.0",
     "load-img": "^1.0.0",
     "lodash": "^4.17.21",
