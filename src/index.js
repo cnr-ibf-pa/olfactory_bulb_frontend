@@ -375,7 +375,7 @@ function runSimulation() {
         
         // command string
         let commandString = "sbatch /apps/hbp/ich002/cnr-software-utils/olfactory-bulb/olfactory-bulb-utils/ob_sim_launch.sh \
-            " + allGloms + " . " + odor[0].id + " " + mhe.ge("sniff-input").value.toString() + " " + simulationId;
+            " + allGloms + " . " + odor[0].id + " " + mhe.ge("sniff-input").value.toString() + " " + mhe.ge("dur-input").value.toString() + " " + simulationId;
 
         // create payload
         let payload = {}
@@ -1453,7 +1453,7 @@ function populateSubmitPanel() {
     sniffInput.setAttribute("aria-label", "Default")
     sniffInput.setAttribute("aria-describedby", "sniff-span")
     sniffInput.setAttribute("value", "500")
-    sniffInput.setAttribute('disabled', '')
+    // sniffInput.setAttribute('disabled', '')
     sniffInput.classList.add("form-control", "input-param")
 
     sniffSpanDiv.appendChild(sniffSpan)
@@ -1479,7 +1479,7 @@ function populateSubmitPanel() {
     durInput.setAttribute("type", "text")
     durInput.setAttribute("aria-label", "Default")
     durInput.setAttribute("value", "1000")
-    durInput.setAttribute('disabled', '')
+    // durInput.setAttribute('disabled', '')
     durInput.setAttribute("aria-describedby", "dur-span")
     durInput.classList.add("form-control", "input-param")
 
