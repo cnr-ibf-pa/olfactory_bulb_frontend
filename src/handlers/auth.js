@@ -1,6 +1,6 @@
 import { UserManager, WebStorageStateStore } from "oidc-client";
-import * as dev from "../utils/dev-config.js";
-import * as prod from "../utils/prod-config.js"
+import * as dev from "../utils/config/dev-config.js";
+import * as prod from "../utils/config/prod-config.js"
 
 function getUserManagerSettings() {
     /*** these fields are taken from dev-config or prod-config ***
