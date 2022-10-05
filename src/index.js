@@ -83,7 +83,8 @@ var odorValues
 
 let visDelay = 500
 
-const BACKEND = window.location.href.includes("localhost") ? "https://localhost:8000/" : "https://olfactory-bulb.cineca.it/api/";
+// const BACKEND = window.location.href.includes("localhost") ? "https://localhost:8000/" : "https://olfactory-bulb.cineca.it/api/";
+const BACKEND = "https://olfactory-bulb.cineca.it/api/";
 const PROXY = BACKEND + "my-proxy/"
 
 const INTERNAL_FILE_PROVIDER = BACKEND + "get-json/";
@@ -172,7 +173,7 @@ var allMTCellsPositions = []
 const waitingBootModal = new Modal(mhe.ge('waiting-modal'), { keyboard: false })
 const messageBootModal = new Modal(mhe.ge('message-modal'), { keyboard: false })
 
-const demoUrl = PROXY + "https://object.cscs.ch:443/v1/AUTH_c0a333ecf7c045809321ce9d9ecdfdea/web-resources-bsp/data/olfactory-bulb/demo_sim/"
+// const demoUrl = PROXY + "https://object.cscs.ch:443/v1/AUTH_c0a333ecf7c045809321ce9d9ecdfdea/web-resources-bsp/data/olfactory-bulb/demo_sim/"
 
 window.addEventListener('resize', resize);
 
@@ -202,7 +203,7 @@ async function getSimulationData(origin="", jobTitle="") {
    
     let url, suffix, headers;
     if (origin == "") {
-        url = demoUrl;
+        url = INTERNAL_FILE_PROVIDER;
         suffix = "";
         mhe.ge("sim-id").innertText = "Sim title: DEMO";
         headers = {};
@@ -1223,9 +1224,10 @@ async function checkSimStatus() {
         populateJobList(jobList);
     }).catch(error => {
         if (error.response.status == 403) {
-            // alert("Unauthorized request.");
+            alert("Unauthorized request.");
         } else {
-            // alert("Something went wrong.");
+            alert("Something went wrong.");
+            console.log(error);
         }
     }).finally(() => { waitingBootModal.hide() });
 }

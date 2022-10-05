@@ -12,7 +12,7 @@ dist/
 
 package-lock.json
 
-config/
+.src/config/oidc/
 
 # User-specific files
 *.rsuser
