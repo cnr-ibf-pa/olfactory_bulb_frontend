@@ -376,7 +376,7 @@ function runSimulation() {
         
         // command string
         let commandString = "sbatch /apps/hbp/ich002/cnr-software-utils/olfactory-bulb/olfactory-bulb-utils/ob_sim_launch.sh \
-            " + allGloms + " . " + odor[0].id + " " + mhe.ge("sniff-input").value.toString() + " " + mhe.ge("dur-input").value.toString() + " " + simulationId;
+            " + simulationId + " " + allGloms + " . " + odor[0].id + " " + mhe.ge("sniff-input").value.toString() + " " + mhe.ge("dur-input").value.toString();
 
         // create payload
         let payload = {}
