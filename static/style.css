@@ -215,9 +215,38 @@ body {
     font-weight: bolder;
 }
 
-.sim-name-div {
+/*.sim-name-div {
     color: black !important;
     background-color: cornsilk;
+    padding: 4px;
+    margin-top: 5px;
+    margin-top: 5px;
+    text-align: center;
+    font-size: 14px !important;
+}
+
+#sim-name-run {
+    font-size: 16px !important;
+    font-weight: bolder;
+}*/
+
+
+.sim-name-row {
+    margin: auto;
+}
+
+.sim-name-div-label {
+    color: black !important;
+    background-color: cornsilk;
+    padding: 4px;
+    margin-top: 5px;
+    margin-top: 5px;
+    text-align: center;
+    font-size: 20px !important;
+}
+.sim-name-div-text {
+    color: black !important;
+    background-color: whitesmoke;
     padding: 4px;
     margin-top: 5px;
     margin-top: 5px;
@@ -336,7 +365,7 @@ body {
     border-bottom-right-radius: 12px !important;
 }
 
-#sim-id {
+#sim-id, #sim-time, #sim-odor, #sim-sniff {
     text-align: center;
     background-color: cornsilk;
     color: black;
@@ -354,11 +383,18 @@ body {
     background-color: #fff170 !important;
 }
 
+.running-job {
+    background-color: #7cb1ff !important;
+}
+.running-job.job-active {
+    background-color: #3989ff !important;
+}
+
 .failed-job {
     background-color: #ef9683 !important;
 }
 .failed-job.job-active {
-    background-color: #ff795b !important;
+    background-color: #ff4545 !important;
 }
 
 .success-job {

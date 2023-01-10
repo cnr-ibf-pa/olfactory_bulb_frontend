@@ -170,6 +170,8 @@ var allGlomCoord = [] // dictionary with all glomeurli coordinates
 var allGranulePositions = []// dictionary of all granule cell positions
 var allMTCellsPositions = []
 
+var simParams = null;
+
 const waitingBootModal = new Modal(mhe.ge('waiting-modal'), { keyboard: false })
 const messageBootModal = new Modal(mhe.ge('message-modal'), { keyboard: false })
 
@@ -263,6 +265,17 @@ async function getSimulationData(origin="", jobTitle="") {
             console.log(error);
         })
 
+    let pams = axios.get(url + "parameters.json" + suffix, headers)
+	.then(response => {
+	    if (typeof(response.data) === "string") {
+                simParams = JSON.parse(response.data);
+	    } else {
+                simParams = response.data;
+	    }
+	}).catch(error => {
+            simParams = null;
+	});
+    
     let ob_dict=null, granule_red_cells=null, eta_norm=null, all_mt_cells=null;
 
     if (origin == "") {
@@ -298,6 +311,13 @@ async function getSimulationData(origin="", jobTitle="") {
     await simgloms, await simcells, await connections;
     if (ob_dict !== null && granule_red_cells !== null && eta_norm !== null && all_mt_cells !== null) {
         await ob_dict, await granule_red_cells, await eta_norm, await all_mt_cells;
+    }
+
+    await pams;
+    if (simParams !== null) {
+        mhe.ge("sim-odor").innerText = "Odor: " + simParams.odor;
+	mhe.ge("sim-sniff").innerText = "Sniff Interval (ms): " + simParams.sniffintvl;
+	mhe.ge("sim-time").innerText = "Simulation Time (ms): " + simParams.simulation_time;
     }
 
     initializeSceneContent();
@@ -372,11 +392,10 @@ function runSimulation() {
         }
         allGloms = allGloms.slice(0, -1) + "] "
 
-        let simulationId = document.getElementById("sim-name-run").innerText.split("Simulation ID: ")[1];
+        let simulationId = document.getElementById("sim-name-run").value;
         
         // command string
-        let commandString = "sbatch /apps/hbp/ich002/cnr-software-utils/olfactory-bulb/olfactory-bulb-utils/ob_sim_launch.sh \
-            " + simulationId + " " + allGloms + " . " + odor[0].id + " " + mhe.ge("sniff-input").value.toString() + " " + mhe.ge("dur-input").value.toString();
+        let commandString = "/apps/hbp/ich002/cnr-software-utils/olfactory-bulb/olfactory-bulb-utils/ob_sim_launch.sh " + simulationId + " " + allGloms + " . " + odor[0].id + " " + mhe.ge("sniff-input").value.toString() + " " + mhe.ge("dur-input").value.toString();
 
         // create payload
         let payload = {}
@@ -880,6 +899,18 @@ function createCellSelectionBox() {
     simId.id = "sim-id"
     simId.innerHTML = "Simulation ID: DEMO"
 
+    let simOdor = mhe.cf("div");
+    simOdor.id = "sim-odor";
+    simOdor.innerText = "DEMO ODOR";
+
+    let simSniff = mhe.cf("div");
+    simSniff.id = "sim-sniff";
+    simSniff.innerText = "DEMO SNIFF";
+
+    let simTime = mhe.cf("div");
+    simTime.id = "sim-time";
+    simTime.innerText = "DEMO TIME";
+	
     // Glomeruli box
     let glomBox = mhe.cf('div')
     glomBox.id = "glom-box"
@@ -1051,8 +1082,6 @@ function createCellSelectionBox() {
     boxButtons.appendChild(cleanTMCBtn)
     //boxButtons.appendChild(cleanGrCBtn)
 
-
-
     // Insert list of Glomeruli
     glomListBox.appendChild(glomBox)
 
@@ -1086,6 +1115,11 @@ function createCellSelectionBox() {
     // Insert Simulation Id
 
     mhe.ge("explorer-body").appendChild(simId)
+   
+    mhe.ge("explorer-body").appendChild(simOdor);
+    mhe.ge("explorer-body").appendChild(simSniff);
+    mhe.ge("explorer-body").appendChild(simTime);
+
     mhe.ge("explorer-body").appendChild(listGroupsBox)
     mhe.ge("explorer-body").appendChild(boxButtons)
 }
@@ -1223,6 +1257,7 @@ async function checkSimStatus() {
     }).then(jobList => {
         populateJobList(jobList);
     }).catch(error => {
+	console.log(error);
         if (error.response.status == 403) {
             alert("Unauthorized request.");
         } else {
@@ -1254,7 +1289,9 @@ function populateJobList(jobList) {
             let jobClass = ""
             if (stage == "QUEUED") {
                 jobClass = "queue-job"
-            } else if (stage == "FAILED") {
+            } else if (stage == "RUNNING") {
+		jobClass = "running-job";
+	    } else if (stage == "FAILED") {
                 jobClass = "failed-job"
             } else if (stage == "SUCCESSFUL") {
                 jobClass = "success-job"
@@ -1490,11 +1527,23 @@ function populateSubmitPanel() {
     durDiv.appendChild(durInput)
 
     // Simulation name Div
-    let simNameDiv = mhe.cf("div")
+    /*let simNameDiv = mhe.cf("div")
     simNameDiv.id = "sim-name-run"
     simNameDiv.classList.add("sim-name-div")
     simNameDiv.innerHTML = "Simulation ID: " + generateSimulationId()
-
+*/
+    let simNameDiv = mhe.cf("div");
+    simNameDiv.className = "row";
+    simNameDiv.style.margin = "auto"
+    let simNameDivLabel = mhe.cf("div");
+    simNameDivLabel.className = "col sim-name-div-label";
+    simNameDivLabel.innerText = "Simulation ID";
+    let simNameDivText = mhe.cf("input");
+    simNameDivText.id = "sim-name-run";
+    simNameDivText.className = "col sim-name-div-text";
+    simNameDivText.value = generateSimulationId();
+    simNameDiv.appendChild(simNameDivLabel);
+    simNameDiv.appendChild(simNameDivText);
 
     // Run simulatioin button
     let runSimBtn = mhe.cf("button")
