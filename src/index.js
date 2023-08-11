@@ -84,13 +84,13 @@ var odorValues
 let visDelay = 500
 
 // const BACKEND = window.location.href.includes("localhost") ? "https://localhost:8000/" : "https://olfactory-bulb.cineca.it/api/";
-const BACKEND = "https://olfactory-bulb.cineca.it/api/";
+const BACKEND = "https://olfactory-bulb.ebrains-italy.eu/api/";
 const PROXY = BACKEND + "my-proxy/"
 
 const INTERNAL_FILE_PROVIDER = BACKEND + "get-json/";
-const SA_DAINT_JOB_URL = "https://bspsa.cineca.it/jobs/pizdaint/netpyne_olfactory_bulb/"
+const SA_DAINT_JOB_URL = "https://sa.ebrains-italy.eu/jobs/pizdaint/netpyne_olfactory_bulb/"
 // const SA_DAINT_JOB_URL = BACKEND + "jobs";
-const SA_DAINT_FILE_URL = "https://bspsa.cineca.it/files/pizdaint/netpyne_olfactory_bulb/";
+const SA_DAINT_FILE_URL = "https://bspsa.ebrains-italy.eu/files/pizdaint/netpyne_olfactory_bulb/";
 
 // ========================== AUTHENTICATION ====================================== 
 
